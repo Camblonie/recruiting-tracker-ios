@@ -252,7 +252,9 @@ struct InsightCard: View {
                             endPoint: .trailing
                         )
                     )
-                    .foregroundColor(insight.color)
+                    .foregroundColor(.white)
+                    .fontWeight(.bold)
+                    .shadow(color: Color.black.opacity(0.2), radius: 1, x: 0, y: 1)
                     .cornerRadius(4)
             }
         }
