@@ -15,20 +15,35 @@ struct SearchView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
-                    VStack {
-                        Picker("Sort", selection: $sortOption) {
-                            ForEach(SortOption.allCases, id: \.self) { option in
-                                Text(option.rawValue).tag(option)
+                    // Custom tab picker for sort options
+                    VStack(spacing: 0) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 0) {
+                                ForEach(SortOption.allCases, id: \.self) { option in
+                                    Button(action: {
+                                        sortOption = option
+                                    }) {
+                                        VStack(spacing: 4) {
+                                            Text(option.rawValue)
+                                                .font(.headline)
+                                                .fontWeight(sortOption == option ? .bold : .regular)
+                                                .foregroundColor(sortOption == option ? .white : .white.opacity(0.7))
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 10)
+                                        }
+                                        .background(
+                                            sortOption == option ? 
+                                                Color.slate : Color.slate.opacity(0.6)
+                                        )
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
                             }
+                            .padding(.horizontal, 4)
                         }
-                        .pickerStyle(.segmented)
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
+                        .background(Color.headerGradient)
                     }
-                    .background(
-                        Color.calmGradient
-                            .opacity(0.15)
-                    )
+                    .frame(height: 44)
                     
                     CandidateSearchResults(
                         searchText: searchText,
