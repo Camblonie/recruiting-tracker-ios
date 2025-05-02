@@ -1,0 +1,44 @@
+# Xcode
+.DS_Store
+*/.DS_Store
+*.swp
+*.lock
+profile
+xcuserdata/
+DerivedData/
+*.hmap
+*.ipa
+*.xcuserstate
+xcshareddata/
+*.moved-aside
+.build/
+build/
+
+# Swift Package Manager
+.build/
+
+# CocoaPods
+Pods/
+*.xcworkspace
+
+# Carthage
+Carthage/Build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# App packaging
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+.swiftpm
+.netrc
