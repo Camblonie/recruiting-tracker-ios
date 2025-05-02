@@ -114,18 +114,24 @@ struct CandidateSearchResults: View {
                 ForEach(sortedPositions, id: \.self) { positionName in
                     if let candidatesForPosition = groupedCandidates[positionName] {
                         Section(header: 
-                            Text(positionName)
-                                .font(.headline)
-                                .foregroundColor(.slate)
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.cream.opacity(0.7))
-                                        .shadow(color: Color.slate.opacity(0.15), radius: 2, x: 0, y: 1)
-                                )
-                                .padding(.top, 4)
+                            HStack {
+                                Image(systemName: "briefcase.fill")
+                                    .foregroundColor(.white)
+                                    .font(.subheadline)
+                                
+                                Text(positionName)
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.slate.opacity(0.9))
+                                    .shadow(color: Color.slate.opacity(0.15), radius: 2, x: 0, y: 1)
+                            )
+                            .padding(.top, 4)
                         ) {
                             ForEach(candidatesForPosition) { candidate in
                                 NavigationLink(destination: CandidateDetailView(candidate: candidate)) {
@@ -167,29 +173,47 @@ struct CandidateRow: View {
                     .font(.headline)
                     .foregroundColor(Color.slate)
                 
+                Spacer()
+                
                 if candidate.isHotCandidate {
-                    Image(systemName: "flame.fill")
-                        .foregroundColor(.terracotta)
+                    Label("Hot", systemImage: "flame.fill")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.terracotta)
+                        .cornerRadius(4)
                 }
                 
                 if candidate.needsFollowUp {
-                    Image(systemName: "bell.fill")
-                        .foregroundColor(.slate)
+                    Label("Follow up", systemImage: "bell.fill")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.slate)
+                        .cornerRadius(4)
                 }
                 
                 if candidate.avoidCandidate {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.red)
+                    Label("Avoid", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.red)
+                        .cornerRadius(4)
                 }
                 
-                Spacer()
-                
-                Text(candidate.technicianLevel.rawValue)
-                    .font(.caption)
-                    .padding(4)
-                    .background(levelGradient(for: candidate.technicianLevel))
-                    .foregroundColor(.white)
-                    .cornerRadius(4)
+                HStack(spacing: 4) {
+                    Text(levelIndicator(for: candidate.technicianLevel))
+                        .font(.caption.bold())
+                        .padding(4)
+                        .background(levelGradient(for: candidate.technicianLevel))
+                        .foregroundColor(.white)
+                        .cornerRadius(4)
+                        .frame(width: 24, height: 24)
+                }
             }
             
             Text(candidate.email)
@@ -210,57 +234,56 @@ struct CandidateRow: View {
         }
         .padding(12)
         .background(
-            Group {
-                if candidate.isHotCandidate {
-                    Color.warmGradient
-                        .opacity(0.7)
-                } else if candidate.needsFollowUp {
-                    Color.followUpGradient
-                        .opacity(0.7)
-                } else if candidate.avoidCandidate {
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.red.opacity(0.7), Color.red.opacity(0.4)]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                } else {
-                    Color.neutralGradient
-                }
-            }
+            Color.cream.opacity(0.7)
         )
         .cornerRadius(12)
         .shadow(color: Color.slate.opacity(0.15), radius: 4, x: 0, y: 2)
+    }
+    
+    private func levelIndicator(for level: TechnicianLevel) -> String {
+        switch level {
+        case .unknown:
+            return "?"
+        case .a:
+            return "A"
+        case .b:
+            return "B"
+        case .c:
+            return "C"
+        case .lubeTech:
+            return "L"
+        }
     }
     
     private func levelGradient(for level: TechnicianLevel) -> LinearGradient {
         switch level {
         case .unknown:
             return LinearGradient(
-                gradient: Gradient(colors: [Color(hex: "808080"), Color(hex: "A9A9A9")]),
+                gradient: Gradient(colors: [Color(hex: "8E8E93"), Color(hex: "AEAEB2")]),
                 startPoint: .leading,
                 endPoint: .trailing
             )
         case .a:
             return LinearGradient(
-                gradient: Gradient(colors: [Color(hex: "2E8B57"), Color(hex: "3CB371")]),
+                gradient: Gradient(colors: [Color(hex: "0A84FF"), Color(hex: "5AC8FA")]),
                 startPoint: .leading,
                 endPoint: .trailing
             )
         case .b:
             return LinearGradient(
-                gradient: Gradient(colors: [Color(hex: "4F6D7A"), Color(hex: "6D8B9C")]),
+                gradient: Gradient(colors: [Color(hex: "5856D6"), Color(hex: "7D7AFF")]),
                 startPoint: .leading,
                 endPoint: .trailing
             )
         case .c:
             return LinearGradient(
-                gradient: Gradient(colors: [Color(hex: "DD6E42"), Color(hex: "E58E65")]),
+                gradient: Gradient(colors: [Color(hex: "34C759"), Color(hex: "30D158")]),
                 startPoint: .leading,
                 endPoint: .trailing
             )
         case .lubeTech:
             return LinearGradient(
-                gradient: Gradient(colors: [Color(hex: "8A2BE2"), Color(hex: "9370DB")]),
+                gradient: Gradient(colors: [Color(hex: "AF52DE"), Color(hex: "C969E6")]),
                 startPoint: .leading,
                 endPoint: .trailing
             )
