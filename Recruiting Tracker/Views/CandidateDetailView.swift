@@ -132,7 +132,7 @@ struct CandidateDetailView: View {
                     FileAttachmentView(candidate: candidate)
                 }
                 
-                Button("Share Candidate Info") {
+                Button("Share Candidate Info (set in settings)") {
                     shareCandidate()
                 }
                 .foregroundColor(.blue)
