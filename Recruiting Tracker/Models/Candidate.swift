@@ -29,6 +29,7 @@ enum TechnicalFocus: String, Codable, CaseIterable {
 }
 
 enum TechnicianLevel: String, Codable, CaseIterable {
+    case unknown = "Unknown"
     case a = "A"
     case b = "B"
     case c = "C"
@@ -94,6 +95,7 @@ final class Candidate {
     
     // Relationships
     @Relationship var attachedFiles: [CandidateFile]
+    @Relationship var position: Position?
     
     // MARK: - Initialization
     init(name: String,
@@ -106,6 +108,7 @@ final class Candidate {
          technicalFocus: [TechnicalFocus],
          technicianLevel: TechnicianLevel,
          hiringStatus: HiringStatus = .notContacted,
+         position: Position? = nil,
          dateEntered: Date = Date()) {
         
         self.id = UUID().uuidString
@@ -119,6 +122,7 @@ final class Candidate {
         self.technicalFocus = technicalFocus
         self.technicianLevel = technicianLevel
         self.hiringStatus = hiringStatus
+        self.position = position
         
         // Initialize flags
         self.needsFollowUp = false
@@ -159,6 +163,7 @@ final class Candidate {
         Email: \(email)
         Lead Source: \(leadSource.rawValue)
         \(referralName != nil ? "Referred By: \(referralName!)" : "")
+        \(position != nil ? "Position: \(position!.title)" : "")
         
         Experience:
         Years of Experience: \(yearsOfExperience)
@@ -185,26 +190,7 @@ final class Candidate {
             }
         }
         
-        export += """
-        
-        Compensation:
-        \(conceptPayScale != nil ? "Concept Pay Scale: \(conceptPayScale!)" : "")
-        \(conceptPayDate != nil ? "Pay Scale Date: \(conceptPayDate!.formatted())" : "")
-        Needs Health Insurance: \(needsHealthInsurance ? "Yes" : "No")
-        
-        Additional Information:
-        \(offerDetail != nil ? "Offer Details: \(offerDetail!)" : "")
-        \(offerDate != nil ? "Offer Date: \(offerDate!.formatted())" : "")
-        Social Media: \(socialMediaLinks.joined(separator: ", "))
-        
-        Notes:
-        \(notes)
-        
-        Date Entered: \(dateEntered.formatted())
-        
-        Attached Files:
-        \(attachedFiles.map { $0.fileName }.joined(separator: ", "))
-        """
+        export += "\nDate Entered: \(dateEntered.formatted())"
         
         return export
     }

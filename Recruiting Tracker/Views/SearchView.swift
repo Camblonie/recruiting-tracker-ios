@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Charts
 
 struct SearchView: View {
     @Environment(\.modelContext) private var modelContext
@@ -12,36 +13,47 @@ struct SearchView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Sort option picker
-                Picker("Sort", selection: $sortOption) {
-                    ForEach(SortOption.allCases, id: \.self) { option in
-                        Text(option.rawValue).tag(option)
+            ScrollView {
+                VStack(spacing: 0) {
+                    VStack {
+                        Picker("Sort", selection: $sortOption) {
+                            ForEach(SortOption.allCases, id: \.self) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal)
+                        .padding(.vertical, 8)
                     }
+                    .background(
+                        Color.calmGradient
+                            .opacity(0.15)
+                    )
+                    
+                    CandidateSearchResults(
+                        searchText: searchText,
+                        filter: filter,
+                        sortOption: sortOption,
+                        selectedCandidate: $selectedCandidate,
+                        showingDeleteConfirmation: $showingDeleteConfirmation
+                    )
                 }
-                .pickerStyle(.segmented)
-                .padding()
-                
-                // Search results
-                CandidateSearchResults(
-                    searchText: searchText,
-                    filter: filter,
-                    sortOption: sortOption,
-                    selectedCandidate: $selectedCandidate,
-                    showingDeleteConfirmation: $showingDeleteConfirmation
-                )
             }
             .searchable(text: $searchText, prompt: "Search by name, email, or phone")
             .onChange(of: searchText) { oldValue, newValue in
                 filter.searchText = newValue
             }
             .navigationTitle("Search")
+            .toolbarBackground(Color.headerGradient, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showingFilters = true
                     } label: {
                         Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                            .foregroundColor(.cream)
                     }
                 }
             }
@@ -85,24 +97,61 @@ struct CandidateSearchResults: View {
     }
     
     var body: some View {
-        List {
-            ForEach(candidates) { candidate in
-                NavigationLink(destination: CandidateDetailView(candidate: candidate)) {
-                    CandidateRow(candidate: candidate)
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                // Group candidates by position
+                let groupedCandidates = Dictionary(grouping: candidates) { candidate in
+                    candidate.position?.title ?? "No Position Assigned"
                 }
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) {
-                        selectedCandidate = candidate
-                        showingDeleteConfirmation = true
-                    } label: {
-                        Label("Delete", systemImage: "trash")
+                
+                // Sort position keys alphabetically with "No Position" at the end
+                let sortedPositions = groupedCandidates.keys.sorted { 
+                    if $0 == "No Position Assigned" { return false }
+                    if $1 == "No Position Assigned" { return true }
+                    return $0 < $1
+                }
+                
+                ForEach(sortedPositions, id: \.self) { positionName in
+                    if let candidatesForPosition = groupedCandidates[positionName] {
+                        Section(header: 
+                            Text(positionName)
+                                .font(.headline)
+                                .foregroundColor(.slate)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.cream.opacity(0.7))
+                                        .shadow(color: Color.slate.opacity(0.15), radius: 2, x: 0, y: 1)
+                                )
+                                .padding(.top, 4)
+                        ) {
+                            ForEach(candidatesForPosition) { candidate in
+                                NavigationLink(destination: CandidateDetailView(candidate: candidate)) {
+                                    CandidateRow(candidate: candidate)
+                                        .contextMenu {
+                                            Button(role: .destructive) {
+                                                selectedCandidate = candidate
+                                                showingDeleteConfirmation = true
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                        }
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
                     }
                 }
             }
+            .padding()
         }
+        .background(Color.skyBlue.opacity(0.1))
         .overlay {
             if candidates.isEmpty {
                 ContentUnavailableView.search
+                    .background(Color.skyBlue.opacity(0.05))
             }
         }
     }
@@ -116,15 +165,16 @@ struct CandidateRow: View {
             HStack {
                 Text(candidate.name)
                     .font(.headline)
+                    .foregroundColor(Color.slate)
                 
                 if candidate.isHotCandidate {
                     Image(systemName: "flame.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(.terracotta)
                 }
                 
                 if candidate.needsFollowUp {
                     Image(systemName: "bell.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(.slate)
                 }
                 
                 if candidate.avoidCandidate {
@@ -137,7 +187,7 @@ struct CandidateRow: View {
                 Text(candidate.technicianLevel.rawValue)
                     .font(.caption)
                     .padding(4)
-                    .background(levelColor(for: candidate.technicianLevel))
+                    .background(levelGradient(for: candidate.technicianLevel))
                     .foregroundColor(.white)
                     .cornerRadius(4)
             }
@@ -150,27 +200,75 @@ struct CandidateRow: View {
                 Label("\(candidate.yearsOfExperience) years", systemImage: "clock")
                 Spacer()
                 Text(candidate.hiringStatus.rawValue)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.slate.opacity(0.1))
+                    .cornerRadius(4)
             }
             .font(.caption)
             .foregroundColor(.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(12)
+        .background(
+            Group {
+                if candidate.isHotCandidate {
+                    Color.warmGradient
+                        .opacity(0.7)
+                } else if candidate.needsFollowUp {
+                    Color.followUpGradient
+                        .opacity(0.7)
+                } else if candidate.avoidCandidate {
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.red.opacity(0.7), Color.red.opacity(0.4)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                } else {
+                    Color.neutralGradient
+                }
+            }
+        )
+        .cornerRadius(12)
+        .shadow(color: Color.slate.opacity(0.15), radius: 4, x: 0, y: 2)
     }
     
-    private func levelColor(for level: TechnicianLevel) -> Color {
+    private func levelGradient(for level: TechnicianLevel) -> LinearGradient {
         switch level {
+        case .unknown:
+            return LinearGradient(
+                gradient: Gradient(colors: [Color(hex: "808080"), Color(hex: "A9A9A9")]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
         case .a:
-            return .green
+            return LinearGradient(
+                gradient: Gradient(colors: [Color(hex: "2E8B57"), Color(hex: "3CB371")]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
         case .b:
-            return .blue
+            return LinearGradient(
+                gradient: Gradient(colors: [Color(hex: "4F6D7A"), Color(hex: "6D8B9C")]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
         case .c:
-            return .orange
+            return LinearGradient(
+                gradient: Gradient(colors: [Color(hex: "DD6E42"), Color(hex: "E58E65")]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
         case .lubeTech:
-            return .purple
+            return LinearGradient(
+                gradient: Gradient(colors: [Color(hex: "8A2BE2"), Color(hex: "9370DB")]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
         }
     }
 }
 
 #Preview {
     SearchView()
+        .modelContainer(for: Candidate.self, inMemory: true)
 }

@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var companies: [Company]
     @Query private var candidates: [Candidate]
+    @Query private var positions: [Position]
     
     @State private var companyName = ""
     @State private var selectedItem: PhotosPickerItem?
@@ -14,6 +15,10 @@ struct SettingsView: View {
     @State private var showingExportOptions = false
     @State private var exportFormat = ExportFormat.text
     @State private var showingCompanyEditor = false
+    @State private var showingPositionManager = false
+    @State private var newPositionTitle = ""
+    @State private var newPositionDescription = ""
+    @State private var showingAddPosition = false
     @State private var showingExport = false
     @State private var showingDeleteConfirmation = false
     
@@ -50,6 +55,35 @@ struct SettingsView: View {
                     
                     Button("Edit Company Info") {
                         showingCompanyEditor = true
+                    }
+                }
+                
+                Section("Position Management") {
+                    ForEach(positions) { position in
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(position.title)
+                                    .font(.headline)
+                                
+                                if !position.positionDescription.isEmpty {
+                                    Text(position.positionDescription)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            Text("\(position.candidates.count) candidates")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .onDelete(perform: deletePositions)
+                    
+                    Button("Add Position") {
+                        showingAddPosition = true
                     }
                 }
                 
@@ -116,6 +150,30 @@ struct SettingsView: View {
                     CompanyEditorView(company: currentCompany)
                 }
             }
+            .sheet(isPresented: $showingAddPosition) {
+                NavigationView {
+                    Form {
+                        Section("New Position") {
+                            TextField("Position Title", text: $newPositionTitle)
+                            
+                            TextField("Position Description", text: $newPositionDescription, axis: .vertical)
+                                .lineLimit(4)
+                        }
+                    }
+                    .navigationTitle("Add Position")
+                    .navigationBarItems(
+                        leading: Button("Cancel") {
+                            showingAddPosition = false
+                            newPositionTitle = ""
+                            newPositionDescription = ""
+                        },
+                        trailing: Button("Save") {
+                            saveNewPosition()
+                        }
+                        .disabled(newPositionTitle.isEmpty)
+                    )
+                }
+            }
             .sheet(isPresented: $showingExport) {
                 ExportView()
             }
@@ -127,6 +185,34 @@ struct SettingsView: View {
             } message: {
                 Text("Are you sure you want to delete all data? This action cannot be undone.")
             }
+        }
+    }
+    
+    private func saveNewPosition() {
+        guard !newPositionTitle.isEmpty else { return }
+        
+        if let company = company {
+            let position = Position(title: newPositionTitle, positionDescription: newPositionDescription)
+            company.positions.append(position)
+            
+            // Clear form
+            newPositionTitle = ""
+            newPositionDescription = ""
+            showingAddPosition = false
+        }
+    }
+    
+    private func deletePositions(at offsets: IndexSet) {
+        for index in offsets {
+            let position = positions[index]
+            
+            // Remove the position from any candidates
+            for candidate in position.candidates {
+                candidate.position = nil
+            }
+            
+            // Delete the position
+            modelContext.delete(position)
         }
     }
     
@@ -164,6 +250,7 @@ struct SettingsView: View {
         do {
             try modelContext.delete(model: Company.self)
             try modelContext.delete(model: Candidate.self)
+            try modelContext.delete(model: Position.self)
         } catch {
             print("Error deleting data: \(error)")
         }

@@ -6,18 +6,21 @@ struct CandidateFormView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Binding var isPresented: Bool
+    @Query private var candidates: [Candidate]
+    @Query private var positions: [Position]
     
     // Form Fields
     @State private var name = ""
     @State private var phoneNumber = ""
     @State private var email = ""
-    @State private var leadSource = LeadSource.indeed
+    @State private var leadSource: LeadSource?
     @State private var referralName = ""
     @State private var yearsOfExperience = 0
     @State private var selectedEmployers: Set<PreviousEmployer> = []
     @State private var selectedFocus: Set<TechnicalFocus> = []
-    @State private var technicianLevel = TechnicianLevel.lubeTech
-    @State private var hiringStatus = HiringStatus.ghosted
+    @State private var technicianLevel: TechnicianLevel?
+    @State private var selectedPosition: Position?
+    @State private var hiringStatus = HiringStatus.notContacted
     @State private var needsFollowUp = false
     @State private var isHotCandidate = false
     @State private var avoidCandidate = false
@@ -56,8 +59,9 @@ struct CandidateFormView: View {
                         .autocapitalization(.none)
                     
                     Picker("Lead Source", selection: $leadSource) {
+                        Text("Select a lead source").tag(nil as LeadSource?)
                         ForEach(LeadSource.allCases, id: \.self) { source in
-                            Text(source.rawValue).tag(source)
+                            Text(source.rawValue).tag(source as LeadSource?)
                         }
                     }
                     
@@ -68,6 +72,15 @@ struct CandidateFormView: View {
                 
                 Section("Experience") {
                     Stepper("Years of Experience: \(yearsOfExperience)", value: $yearsOfExperience, in: 0...50)
+                    
+                    if !positions.isEmpty {
+                        Picker("Position Applied To", selection: $selectedPosition) {
+                            Text("Select a position").tag(nil as Position?)
+                            ForEach(positions) { position in
+                                Text(position.title).tag(position as Position?)
+                            }
+                        }
+                    }
                     
                     MultiSelectionView(
                         title: "Previous Employers",
@@ -82,14 +95,16 @@ struct CandidateFormView: View {
                     )
                     
                     Picker("Technician Level", selection: $technicianLevel) {
+                        Text("Select a level").tag(nil as TechnicianLevel?)
                         ForEach(TechnicianLevel.allCases, id: \.self) { level in
-                            Text(level.rawValue).tag(level)
+                            Text(level.rawValue).tag(level as TechnicianLevel?)
                         }
                     }
                 }
                 
                 Section("Status") {
                     Picker("Hiring Status", selection: $hiringStatus) {
+                        Text("Select a status").tag(HiringStatus.notContacted)
                         ForEach(HiringStatus.allCases, id: \.self) { status in
                             Text(status.rawValue).tag(status)
                         }
@@ -182,6 +197,11 @@ struct CandidateFormView: View {
         
         Task {
             do {
+                // Make sure required selections are made
+                guard let leadSource = leadSource else {
+                    throw ValidationError.missingRequiredField("Please select a Lead Source")
+                }
+                
                 let candidate = Candidate(
                     name: name,
                     phoneNumber: phoneNumber,
@@ -191,8 +211,9 @@ struct CandidateFormView: View {
                     yearsOfExperience: yearsOfExperience,
                     previousEmployers: Array(selectedEmployers),
                     technicalFocus: Array(selectedFocus),
-                    technicianLevel: technicianLevel,
+                    technicianLevel: technicianLevel ?? .unknown,
                     hiringStatus: hiringStatus,
+                    position: selectedPosition,
                     dateEntered: dateEntered
                 )
                 

@@ -14,35 +14,47 @@ struct OnboardingView: View {
     @State private var positionDescription = ""
     
     var body: some View {
-        VStack {
-            TabView(selection: $currentStep) {
-                welcomeView
-                    .tag(0)
-                
-                companySetupView
-                    .tag(1)
-                
-                positionSetupView
-                    .tag(2)
-            }
-            .tabViewStyle(.page)
-            .indexViewStyle(.page(backgroundDisplayMode: .always))
+        ZStack {
+            // Background gradient that covers the entire screen
+            LinearGradient(
+                gradient: Gradient(colors: [Color.skyBlue.opacity(0.2), Color.cream.opacity(0.3)]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
             
-            Button(action: handleContinue) {
-                Text(currentStep == 2 ? "Get Started" : "Continue")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(
-                        canContinue
-                        ? Color.blue
-                        : Color.gray
-                    )
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+            VStack {
+                TabView(selection: $currentStep) {
+                    welcomeView
+                        .tag(0)
+                    
+                    companySetupView
+                        .tag(1)
+                    
+                    positionSetupView
+                        .tag(2)
+                }
+                .tabViewStyle(.page)
+                .indexViewStyle(.page(backgroundDisplayMode: .always))
+                
+                Button(action: handleContinue) {
+                    Text(currentStep == 2 ? "Get Started" : "Continue")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            canContinue
+                            ? AnyShapeStyle(Color.warmGradient)
+                            : AnyShapeStyle(Color.slate.opacity(0.3))
+                        )
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                        .shadow(color: Color.slate.opacity(0.3), radius: 3, x: 0, y: 2)
+                }
+                .disabled(!canContinue)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .disabled(!canContinue)
-            .padding()
         }
     }
     
@@ -60,36 +72,82 @@ struct OnboardingView: View {
     }
     
     var welcomeView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "person.2.badge.gearshape")
-                .font(.system(size: 60))
-                .foregroundColor(.blue)
+        VStack(spacing: 30) {
+            // Logo/Icon with animation
+            ZStack {
+                Circle()
+                    .fill(Color.calmGradient)
+                    .frame(width: 120, height: 120)
+                    .shadow(color: Color.slate.opacity(0.3), radius: 10, x: 0, y: 5)
+                
+                Image(systemName: "person.2.badge.gearshape")
+                    .font(.system(size: 50))
+                    .foregroundColor(.white)
+            }
+            .padding(.bottom, 20)
             
-            Text("Welcome to Recruiting Tracker")
-                .font(.title)
-                .bold()
-            
-            Text("Let's set up your recruiting workspace")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            // Title with gradient text
+            Text("Welcome to\nRecruiting Tracker")
+                .font(.system(size: 32, weight: .bold))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.slate, Color.terracotta],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+            
+            // Subtitle with custom styling
+            Text("Let's set up your recruiting workspace")
+                .font(.title3)
+                .foregroundColor(.slate.opacity(0.8))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 30)
+                
+            // Feature highlights with icons
+            VStack(alignment: .leading, spacing: 12) {
+                FeatureRow(icon: "person.fill.checkmark", text: "Track candidate progress")
+                FeatureRow(icon: "flame.fill", text: "Identify hot candidates")
+                FeatureRow(icon: "chart.bar.fill", text: "Analyze recruitment metrics")
+            }
+            .padding(.top, 20)
         }
-        .padding()
+        .padding(30)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.cream.opacity(0.7))
+                .shadow(color: Color.slate.opacity(0.2), radius: 15, x: 0, y: 10)
+        )
+        .padding(.horizontal, 20)
     }
     
     var companySetupView: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
             Text("Company Setup")
-                .font(.title2)
+                .font(.title)
                 .bold()
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.slate, Color.slate.opacity(0.8)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
             
             Text("Enter your company information")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.slate.opacity(0.7))
             
             TextField("Company Name", text: $companyName)
-                .textFieldStyle(.roundedBorder)
+                .padding()
+                .background(Color.white.opacity(0.8))
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.slate.opacity(0.3), lineWidth: 1)
+                )
+                .padding(.top, 10)
             
             PhotosPicker(selection: $selectedItem, matching: .images) {
                 if let companyIcon = companyIcon,
@@ -97,18 +155,34 @@ struct OnboardingView: View {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFit()
-                        .frame(height: 100)
-                        .cornerRadius(10)
+                        .frame(height: 120)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.slate.opacity(0.3), lineWidth: 1)
+                        )
+                        .shadow(color: Color.slate.opacity(0.3), radius: 5, x: 0, y: 2)
                 } else {
                     Label("Select Company Icon", systemImage: "building.2")
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.secondary.opacity(0.1))
-                        .cornerRadius(10)
+                        .background(Color.slate.opacity(0.1))
+                        .foregroundColor(.slate)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.slate.opacity(0.3), lineWidth: 1)
+                        )
                 }
             }
         }
-        .padding()
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.cream.opacity(0.7))
+                .shadow(color: Color.slate.opacity(0.2), radius: 15, x: 0, y: 10)
+        )
+        .padding(.horizontal, 20)
         .onChange(of: selectedItem) { oldValue, newValue in
             Task {
                 if let data = try? await newValue?.loadTransferable(type: Data.self) {
@@ -119,23 +193,51 @@ struct OnboardingView: View {
     }
     
     var positionSetupView: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
             Text("Create Your First Position")
-                .font(.title2)
+                .font(.title)
                 .bold()
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color.slate, Color.slate.opacity(0.8)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
             
             Text("Define a position you're recruiting for")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.slate.opacity(0.7))
+                .padding(.bottom, 8)
             
             TextField("Position Title", text: $positionTitle)
-                .textFieldStyle(.roundedBorder)
+                .padding()
+                .background(Color.white.opacity(0.8))
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.slate.opacity(0.3), lineWidth: 1)
+                )
+                .padding(.vertical, 4)
             
             TextField("Position Description", text: $positionDescription, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(4...6)
+                .padding()
+                .background(Color.white.opacity(0.8))
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.slate.opacity(0.3), lineWidth: 1)
+                )
+                .frame(height: 120)
+                .padding(.vertical, 4)
         }
-        .padding()
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.cream.opacity(0.7))
+                .shadow(color: Color.slate.opacity(0.2), radius: 15, x: 0, y: 10)
+        )
+        .padding(.horizontal, 20)
     }
     
     private func handleContinue() {
@@ -160,6 +262,25 @@ struct OnboardingView: View {
             
             // End onboarding
             isOnboarding = false
+        }
+    }
+}
+
+// MARK: - Supporting Views
+struct FeatureRow: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 15) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundColor(Color.terracotta)
+                .frame(width: 30, height: 30)
+            
+            Text(text)
+                .font(.body)
+                .foregroundColor(Color.slate)
         }
     }
 }
