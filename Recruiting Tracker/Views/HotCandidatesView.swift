@@ -23,57 +23,58 @@ struct HotCandidatesView: View {
                     LazyVStack(spacing: 12) {
                         ForEach(candidates) { candidate in
                             NavigationLink(destination: CandidateDetailView(candidate: candidate)) {
-                                VStack(alignment: .leading, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     HStack {
                                         Text(candidate.name)
                                             .font(.headline)
-                                            .foregroundColor(Color.white)
+                                            .foregroundColor(Color.slate)
                                         
                                         Spacer()
                                         
-                                        HStack {
-                                            Image(systemName: "flame.fill")
-                                                .foregroundColor(.cream)
-                                                .font(.caption)
+                                        Label("Hot", systemImage: "flame.fill")
+                                            .font(.caption)
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.terracotta)
+                                            .cornerRadius(4)
                                             
-                                            Text(candidate.technicianLevel.rawValue)
-                                                .font(.caption)
+                                        HStack(spacing: 4) {
+                                            Text(levelIndicator(for: candidate.technicianLevel))
+                                                .font(.caption.bold())
                                                 .padding(4)
                                                 .background(levelGradient(for: candidate.technicianLevel))
                                                 .foregroundColor(.white)
                                                 .cornerRadius(4)
+                                                .frame(width: 24, height: 24)
                                         }
                                     }
                                     
                                     Text(candidate.email)
                                         .font(.subheadline)
-                                        .foregroundColor(.white.opacity(0.9))
+                                        .foregroundColor(.secondary)
                                     
                                     HStack {
                                         Label("\(candidate.yearsOfExperience) years", systemImage: "clock")
-                                            .foregroundColor(.cream.opacity(0.8))
+                                            .foregroundColor(.secondary)
                                         
                                         Spacer()
                                         
                                         Text(candidate.hiringStatus.rawValue)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 2)
-                                            .background(Color.white.opacity(0.2))
-                                            .foregroundColor(.white)
+                                            .background(Color.slate.opacity(0.1))
+                                            .foregroundColor(.secondary)
                                             .cornerRadius(4)
                                     }
                                     .font(.caption)
                                 }
-                                .padding(16)
+                                .padding(12)
                                 .background(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [Color.terracotta, Color.terracotta.opacity(0.8)]),
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
+                                    Color.cream.opacity(0.7)
                                 )
                                 .cornerRadius(12)
-                                .shadow(color: Color.terracotta.opacity(0.4), radius: 5, x: 0, y: 3)
+                                .shadow(color: Color.slate.opacity(0.15), radius: 4, x: 0, y: 2)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(PlainButtonStyle())
@@ -133,6 +134,21 @@ struct HotCandidatesView: View {
                 startPoint: .leading,
                 endPoint: .trailing
             )
+        }
+    }
+    
+    private func levelIndicator(for level: TechnicianLevel) -> String {
+        switch level {
+        case .unknown:
+            return "N/A"
+        case .a:
+            return "A"
+        case .b:
+            return "B"
+        case .c:
+            return "C"
+        case .lubeTech:
+            return "LT"
         }
     }
 }

@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import Combine
 
 struct CandidateFormView: View {
     @Environment(\.modelContext) private var modelContext
@@ -49,9 +50,7 @@ struct CandidateFormView: View {
                     TextField("Name", text: $name)
                         .textContentType(.name)
                     
-                    TextField("Phone Number", text: $phoneNumber)
-                        .textContentType(.telephoneNumber)
-                        .keyboardType(.phonePad)
+                    PhoneTextField(text: $phoneNumber)
                     
                     TextField("Email", text: $email)
                         .textContentType(.emailAddress)
