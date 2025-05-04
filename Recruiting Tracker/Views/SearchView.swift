@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Charts
+import UIKit
 
 struct SearchView: View {
     @Environment(\.modelContext) private var modelContext
@@ -62,6 +63,20 @@ struct SearchView: View {
             .toolbarBackground(Color.headerGradient, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            // Configure search bar text color while preserving background color
+            .onAppear {
+                // Set search text color to white
+                UISearchBar.appearance().tintColor = .white
+                UISearchBar.appearance().searchTextField.textColor = .white
+                
+                // Set the search bar icon color to white
+                UISearchBar.appearance().searchTextField.leftView?.tintColor = .white
+                
+                // Ensure navigation bar title text is white
+                let navBarAppearance = UINavigationBar.appearance()
+                navBarAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+                navBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -99,6 +114,21 @@ struct CandidateSearchResults: View {
     
     @Query private var candidates: [Candidate]
     
+    // Filtered candidates based on search text
+    private var filteredCandidates: [Candidate] {
+        if searchText.isEmpty {
+            return candidates
+        } else {
+            return candidates.filter { candidate in
+                let searchTermLowercased = searchText.lowercased()
+                return candidate.name.lowercased().contains(searchTermLowercased) ||
+                       candidate.email.lowercased().contains(searchTermLowercased) ||
+                       candidate.phoneNumber.lowercased().contains(searchTermLowercased) ||
+                       candidate.notes.lowercased().contains(searchTermLowercased)
+            }
+        }
+    }
+    
     init(searchText: String, filter: SearchFilter, sortOption: SortOption, selectedCandidate: Binding<Candidate?>, showingDeleteConfirmation: Binding<Bool>) {
         self.searchText = searchText
         self.filter = filter
@@ -106,7 +136,8 @@ struct CandidateSearchResults: View {
         self._selectedCandidate = selectedCandidate
         self._showingDeleteConfirmation = showingDeleteConfirmation
         
-        let predicate = filter.buildPredicate()
+        // Use a simple predicate (we'll filter by search text in the view)
+        let predicate = #Predicate<Candidate> { _ in true }
         let sortDescriptor = filter.sortDescriptor(option: sortOption)
         _candidates = Query(filter: predicate, sort: [sortDescriptor])
     }
@@ -115,7 +146,7 @@ struct CandidateSearchResults: View {
         ScrollView {
             LazyVStack(spacing: 12) {
                 // Group candidates by position
-                let groupedCandidates = Dictionary(grouping: candidates) { candidate in
+                let groupedCandidates = Dictionary(grouping: filteredCandidates) { candidate in
                     candidate.position?.title ?? "No Position Assigned"
                 }
                 
@@ -170,7 +201,7 @@ struct CandidateSearchResults: View {
         }
         .background(Color.skyBlue.opacity(0.1))
         .overlay {
-            if candidates.isEmpty {
+            if filteredCandidates.isEmpty {
                 ContentUnavailableView.search
                     .background(Color.skyBlue.opacity(0.05))
             }

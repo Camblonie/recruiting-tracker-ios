@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct FollowUpView: View {
     @Environment(\.modelContext) private var modelContext
@@ -100,6 +101,13 @@ struct FollowUpView: View {
             .toolbarBackground(Color.headerGradient, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            // Ensure navigation title is always white
+            .onAppear {
+                // Ensure navigation bar title text is white
+                let navBarAppearance = UINavigationBar.appearance()
+                navBarAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+                navBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+            }
         }
     }
     
