@@ -26,6 +26,8 @@ enum TechnicalFocus: String, Codable, CaseIterable {
     case lof = "LOF"
     case lightMechanical = "Light Mechanical"
     case brakes = "Brakes"
+    case tires = "Tires"
+    case alignments = "Alignments"
 }
 
 enum TechnicianLevel: String, Codable, CaseIterable {

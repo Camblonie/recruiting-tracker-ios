@@ -35,13 +35,21 @@ struct CandidateDetailView: View {
                 
                 DisclosureGroup("Previous Employers") {
                     ForEach(candidate.previousEmployers, id: \.self) { employer in
-                        Text(employer.rawValue)
+                        HStack {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.green)
+                            Text(employer.rawValue)
+                        }
                     }
                 }
                 
                 DisclosureGroup("Technical Focus") {
                     ForEach(candidate.technicalFocus, id: \.self) { focus in
-                        Text(focus.rawValue)
+                        HStack {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.green)
+                            Text(focus.rawValue)
+                        }
                     }
                 }
             }

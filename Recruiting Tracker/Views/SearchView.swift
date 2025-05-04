@@ -58,7 +58,7 @@ struct SearchView: View {
             .onChange(of: searchText) { oldValue, newValue in
                 filter.searchText = newValue
             }
-            .navigationTitle("Search")
+            .navigationTitle("Recruiting Tracker")
             .toolbarBackground(Color.headerGradient, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)

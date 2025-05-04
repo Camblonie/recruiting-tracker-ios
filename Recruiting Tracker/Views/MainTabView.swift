@@ -12,13 +12,13 @@ struct MainTabView: View {
             TabView(selection: $selectedTab) {
                 SearchView()
                     .tabItem {
-                        Label("Search", systemImage: "magnifyingglass")
+                        Label("Recruiting Tracker", systemImage: "magnifyingglass")
                     }
                     .tag(0)
 
-                HotCandidatesView()
+                FollowUpView()
                     .tabItem {
-                        Label("Hot List", systemImage: "flame")
+                        Label("Follow Up", systemImage: "bell")
                     }
                     .tag(1)
 
