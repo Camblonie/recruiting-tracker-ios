@@ -9,9 +9,7 @@ struct SettingsView: View {
     @Query private var candidates: [Candidate]
     @Query private var positions: [Position]
     
-    @State private var companyName = ""
     @State private var selectedItem: PhotosPickerItem?
-    @State private var companyIcon: Data?
     @State private var showingExportOptions = false
     @State private var exportFormat = ExportFormat.text
     @State private var showingCompanyEditor = false
@@ -20,7 +18,6 @@ struct SettingsView: View {
     @State private var newPositionDescription = ""
     @State private var showingAddPosition = false
     @State private var showingExport = false
-    @State private var showingDeleteConfirmation = false
     
     var company: Company? {
         companies.first
@@ -37,24 +34,11 @@ struct SettingsView: View {
                 Section("Company Information") {
                     if let currentCompany = company {
                         CompanyInfoRow(company: currentCompany)
-                    }
-                    
-                    TextField("Company Name", text: $companyName)
-                    
-                    PhotosPicker(selection: $selectedItem, matching: .images) {
-                        if let companyIcon = companyIcon,
-                           let uiImage = UIImage(data: companyIcon) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 100)
-                        } else {
-                            Label("Select Company Icon", systemImage: "building.2")
+                        
+                        Button("Edit Company Info") {
+                            showingCompanyEditor = true
                         }
-                    }
-                    
-                    Button("Edit Company Info") {
-                        showingCompanyEditor = true
+                        .foregroundColor(.blue)
                     }
                 }
                 
@@ -93,14 +77,10 @@ struct SettingsView: View {
                     }
                     .foregroundColor(.blue)
                     
-                    Button("Export Data") {
+                    Button("Export Data Settings") {
                         showingExport = true
                     }
                     .foregroundColor(.blue)
-                    
-                    Button("Delete All Data", role: .destructive) {
-                        showingDeleteConfirmation = true
-                    }
                 }
                 
                 Section("About") {
@@ -108,10 +88,13 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .toolbarBackground(Color.slate, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .onChange(of: selectedItem) { oldValue, newValue in
                 Task {
                     if let data = try? await newValue?.loadTransferable(type: Data.self) {
-                        companyIcon = data
+                        selectedItem = nil
                         if let company = company {
                             company.icon = data
                         }
@@ -119,17 +102,13 @@ struct SettingsView: View {
                 }
             }
             .onAppear {
+                // Ensure navigation bar title text is white
+                let navBarAppearance = UINavigationBar.appearance()
+                navBarAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+                navBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+                
                 if let company = company {
-                    companyName = company.name
-                    companyIcon = company.icon
-                }
-            }
-            .onChange(of: companyName) { oldValue, newValue in
-                if let company = company {
-                    company.name = newValue
-                } else {
-                    let newCompany = Company(name: newValue, icon: companyIcon)
-                    modelContext.insert(newCompany)
+                    selectedItem = nil
                 }
             }
             .confirmationDialog(
@@ -176,14 +155,6 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showingExport) {
                 ExportView()
-            }
-            .alert("Delete All Data", isPresented: $showingDeleteConfirmation) {
-                Button("Delete", role: .destructive) {
-                    deleteAllData()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Are you sure you want to delete all data? This action cannot be undone.")
             }
         }
     }
@@ -243,16 +214,6 @@ struct SettingsView: View {
            let window = windowScene.windows.first,
            let rootVC = window.rootViewController {
             rootVC.present(activityVC, animated: true)
-        }
-    }
-    
-    private func deleteAllData() {
-        do {
-            try modelContext.delete(model: Company.self)
-            try modelContext.delete(model: Candidate.self)
-            try modelContext.delete(model: Position.self)
-        } catch {
-            print("Error deleting data: \(error)")
         }
     }
 }
