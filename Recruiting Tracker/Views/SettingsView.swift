@@ -107,7 +107,7 @@ struct SettingsView: View {
                 navBarAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
                 navBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.white]
                 
-                if let company = company {
+                if company != nil {
                     selectedItem = nil
                 }
             }

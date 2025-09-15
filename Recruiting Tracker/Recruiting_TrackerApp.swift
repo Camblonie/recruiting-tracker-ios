@@ -15,8 +15,9 @@ struct Recruiting_TrackerApp: App {
     
     init() {
         do {
+            // Include all @Model types used in the app to avoid container init failures
             modelContainer = try ModelContainer(
-                for: Company.self, Position.self, Candidate.self,
+                for: Company.self, Position.self, Candidate.self, CandidateFile.self,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: false)
             )
         } catch {
