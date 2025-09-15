@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import QuickLook
 
 struct FileAttachmentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -7,6 +8,18 @@ struct FileAttachmentView: View {
     @State private var isImporting = false
     @State private var showingError = false
     @State private var errorMessage = ""
+    
+    // Max allowed file size (10 MB) to keep SwiftData store lean
+    private let maxFileSizeBytes = 10 * 1024 * 1024
+    
+    // Allowed content types for import (PDF, images, and DOCX)
+    private var allowedContentTypes: [UTType] {
+        var types: [UTType] = [.pdf, .image]
+        if let docx = UTType("org.openxmlformats.wordprocessingml.document") {
+            types.append(docx)
+        }
+        return types
+    }
     
     var body: some View {
         List {
@@ -18,9 +31,9 @@ struct FileAttachmentView: View {
                 }
             }
             
-            if !candidate.attachedFiles.isEmpty {
+            if let files = candidate.attachedFiles, !files.isEmpty {
                 Section("Attached Files") {
-                    ForEach(candidate.attachedFiles) { file in
+                    ForEach(candidate.attachedFiles ?? []) { file in
                         FileRow(file: file)
                     }
                     .onDelete(perform: deleteFiles)
@@ -30,7 +43,7 @@ struct FileAttachmentView: View {
         .navigationTitle("Documents")
         .fileImporter(
             isPresented: $isImporting,
-            allowedContentTypes: [.pdf],
+            allowedContentTypes: allowedContentTypes,
             allowsMultipleSelection: true
         ) { result in
             handleFileImport(result)
@@ -51,15 +64,35 @@ struct FileAttachmentView: View {
                 }
                 defer { url.stopAccessingSecurityScopedResource() }
                 
-                let data = try Data(contentsOf: url)
+                // Determine content type and size, enforce limits, and read data
                 let fileName = url.lastPathComponent
+                let ext = url.pathExtension
+                let contentType = UTType(filenameExtension: ext)
+                let typeIdentifier = contentType?.identifier ?? ext.lowercased()
                 
+                // Basic size check to avoid bloating the store
+                let resourceValues = try url.resourceValues(forKeys: [.fileSizeKey])
+                let fileSize = resourceValues.fileSize ?? 0
+                if fileSize > maxFileSizeBytes {
+                    throw NSError(
+                        domain: "",
+                        code: -2,
+                        userInfo: [NSLocalizedDescriptionKey: "File \(fileName) exceeds the 10 MB size limit."]
+                    )
+                }
+                
+                // Read data and create attachment
+                let data = try Data(contentsOf: url)
                 let attachment = CandidateFile(
                     fileName: fileName,
                     fileData: data,
-                    fileType: "pdf"
+                    fileType: typeIdentifier
                 )
-                candidate.attachedFiles.append(attachment)
+                // Initialize attachedFiles if nil
+                if candidate.attachedFiles == nil {
+                    candidate.attachedFiles = []
+                }
+                candidate.attachedFiles?.append(attachment)
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -68,17 +101,32 @@ struct FileAttachmentView: View {
     }
     
     private func deleteFiles(at offsets: IndexSet) {
-        for index in offsets {
-            let file = candidate.attachedFiles[index]
+        // Ensure we have attachedFiles before proceeding
+        guard var files = candidate.attachedFiles else { return }
+        
+        // Get the files to delete
+        let filesToDelete = offsets.map { files[$0] }
+        
+        // Delete each file
+        for file in filesToDelete {
             modelContext.delete(file)
-            candidate.attachedFiles.remove(at: index)
         }
+        
+        // Remove the files from the array
+        for index in offsets.sorted(by: >) {
+            files.remove(at: index)
+        }
+        
+        // Update the candidate's attachedFiles
+        candidate.attachedFiles = files
     }
 }
 
 struct FileRow: View {
     let file: CandidateFile
     @State private var isSharing = false
+    @State private var isPreviewing = false
+    @State private var previewURL: URL? = nil
     
     var body: some View {
         HStack {
@@ -92,14 +140,44 @@ struct FileRow: View {
             
             Spacer()
             
+            // Share via temporary file URL (better interoperability)
             Button(action: {
-                isSharing = true
+                if let url = createTempFileURL() {
+                    previewURL = url // reuse for share
+                    isSharing = true
+                }
             }) {
                 Image(systemName: "square.and.arrow.up")
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if let url = createTempFileURL() {
+                previewURL = url
+                isPreviewing = true
+            }
+        }
         .sheet(isPresented: $isSharing) {
-            ShareSheet(activityItems: [file.fileData])
+            if let url = previewURL { // share URL when available
+                ShareSheet(activityItems: [url])
+            }
+        }
+        .sheet(isPresented: $isPreviewing) {
+            if let url = previewURL {
+                QuickLookPreview(url: url)
+            }
+        }
+    }
+    
+    /// Create a temporary file URL for preview/sharing
+    private func createTempFileURL() -> URL? {
+        let tempDir = FileManager.default.temporaryDirectory
+        let url = tempDir.appendingPathComponent(file.fileName)
+        do {
+            try file.fileData.write(to: url, options: .atomic)
+            return url
+        } catch {
+            return nil
         }
     }
 }
@@ -115,4 +193,30 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
     
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// Quick Look preview for local file URLs
+struct QuickLookPreview: UIViewControllerRepresentable {
+    let url: URL
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(url: url)
+    }
+    
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let controller = QLPreviewController()
+        controller.dataSource = context.coordinator
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: QLPreviewController, context: Context) {}
+    
+    class Coordinator: NSObject, QLPreviewControllerDataSource {
+        let url: URL
+        init(url: URL) { self.url = url }
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+            return url as NSURL
+        }
+    }
 }
