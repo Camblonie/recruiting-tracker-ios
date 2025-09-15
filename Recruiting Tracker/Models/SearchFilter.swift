@@ -4,7 +4,7 @@ import SwiftData
 @Model
 final class SearchFilter {
     // Date range filter
-    var dateRange: ClosedRange<Date>?
+    @Transient var dateRange: ClosedRange<Date>?
     // MARK: - Properties
     var id: String
     var name: String
