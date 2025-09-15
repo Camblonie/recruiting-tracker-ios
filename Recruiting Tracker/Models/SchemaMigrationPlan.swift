@@ -46,7 +46,6 @@ class MigrationManager {
         return ModelConfiguration(
             "RecruitingTrackerDB",
             schema: Schema([Candidate.self, Company.self, Position.self, CandidateFile.self]),
-            migrationPlan: AppMigrationPlan.self,
             cloudKitDatabase: .private(containerIdentifier)
         )
     }
