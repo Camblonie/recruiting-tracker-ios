@@ -40,4 +40,224 @@ final class Recruiting_TrackerUITests: XCTestCase {
             }
         }
     }
+
+    // MARK: - New UI Tests
+
+    @MainActor
+    func testOnboardingFlowIfNeeded() {
+        let app = XCUIApplication()
+        app.launch()
+        completeOnboardingIfPresent(app)
+
+        // Verify we are at the main tab screen by checking for a known tab item
+        let searchTab = app.tabBars.buttons["Recruiting Tracker"]
+        XCTAssertTrue(searchTab.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testAddCandidateMinimal() {
+        let app = XCUIApplication()
+        app.launch()
+        completeOnboardingIfPresent(app)
+
+        // Navigate to Add tab
+        let addTab = app.tabBars.buttons["Add"]
+        XCTAssertTrue(addTab.waitForExistence(timeout: 5))
+        addTab.tap()
+
+        // Open the Add Candidate sheet
+        let addButton = app.buttons["Tap to Add Candidate"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 5))
+        addButton.tap()
+
+        // Select a Lead Source (required)
+        let leadSourceCell = app.staticTexts["Lead Source"]
+        XCTAssertTrue(leadSourceCell.waitForExistence(timeout: 5))
+        leadSourceCell.tap()
+
+        let indeed = app.staticTexts["Indeed"]
+        XCTAssertTrue(indeed.waitForExistence(timeout: 5))
+        indeed.tap()
+
+        // Save
+        let saveButton = app.buttons["Save"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 5))
+        saveButton.tap()
+
+        // Sheet should dismiss
+        XCTAssertFalse(app.navigationBars["New Candidate"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    func testAddCandidateAppearsInFollowUp() {
+        let app = XCUIApplication()
+        app.launch()
+        completeOnboardingIfPresent(app)
+
+        // Add candidate with name and needs follow-up enabled
+        app.tabBars.buttons["Add"].tap()
+        app.buttons["Tap to Add Candidate"].tap()
+
+        let nameField = app.textFields["Name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.tap()
+        nameField.typeText("UITest FollowUp")
+
+        app.staticTexts["Lead Source"].tap()
+        app.staticTexts["Indeed"].tap()
+
+        // Enable Needs Follow-up toggle (may require scrolling)
+        if !app.switches["Needs Follow-up"].exists {
+            app.swipeUp()
+        }
+        let followSwitch = app.switches["Needs Follow-up"]
+        XCTAssertTrue(followSwitch.waitForExistence(timeout: 5))
+        if followSwitch.value as? String == "0" {
+            followSwitch.tap()
+        }
+
+        app.buttons["Save"].tap()
+
+        // Go to Follow Up tab and verify presence
+        app.tabBars.buttons["Follow Up"].tap()
+        XCTAssertTrue(app.staticTexts["UITest FollowUp"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testSettingsAddPosition() {
+        let app = XCUIApplication()
+        app.launch()
+        completeOnboardingIfPresent(app)
+
+        // Open Settings
+        app.tabBars.buttons["Settings"].tap()
+
+        // Add Position
+        let addPosition = app.buttons["Add Position"]
+        XCTAssertTrue(addPosition.waitForExistence(timeout: 5))
+        addPosition.tap()
+
+        let titleField = app.textFields["Position Title"]
+        XCTAssertTrue(titleField.waitForExistence(timeout: 5))
+        titleField.tap(); titleField.typeText("QA Engineer")
+
+        let descField = app.textFields["Position Description"]
+        XCTAssertTrue(descField.waitForExistence(timeout: 5))
+        descField.tap(); descField.typeText("Writes tests")
+
+        app.buttons["Save"].tap()
+
+        // Verify the new position appears in the list
+        XCTAssertTrue(app.staticTexts["QA Engineer"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testCandidateAvoidFlagFlow() {
+        let app = XCUIApplication()
+        app.launch()
+        completeOnboardingIfPresent(app)
+
+        // Add candidate
+        app.tabBars.buttons["Add"].tap()
+        app.buttons["Tap to Add Candidate"].tap()
+        let nameField = app.textFields["Name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.tap(); nameField.typeText("UITest Avoid")
+        app.staticTexts["Lead Source"].tap()
+        app.staticTexts["Indeed"].tap()
+        if !app.switches["Needs Follow-up"].exists { app.swipeUp() }
+        let followSwitch = app.switches["Needs Follow-up"]
+        if followSwitch.value as? String == "0" { followSwitch.tap() }
+        app.buttons["Save"].tap()
+
+        // Open in Follow Up, then open candidate detail
+        app.tabBars.buttons["Follow Up"].tap()
+        let candidateCell = app.staticTexts["UITest Avoid"]
+        XCTAssertTrue(candidateCell.waitForExistence(timeout: 5))
+        candidateCell.tap()
+
+        // Toggle Avoid Candidate -> expect alert, type reason, confirm
+        let avoidToggle = app.switches["Avoid Candidate"]
+        if !avoidToggle.exists { app.swipeUp() }
+        XCTAssertTrue(avoidToggle.waitForExistence(timeout: 5))
+        let preValue = (avoidToggle.value as? String) ?? "0"
+        avoidToggle.tap()
+        let reasonField = app.textFields["Reason for change"]
+        XCTAssertTrue(reasonField.waitForExistence(timeout: 5))
+        reasonField.tap(); reasonField.typeText("Automated test")
+        let confirmButton = app.buttons["Mark as Avoid"]
+        XCTAssertTrue(confirmButton.waitForExistence(timeout: 5))
+        confirmButton.tap()
+
+        // Verify toggle changed and history button appears
+        XCTAssertNotEqual(preValue, (avoidToggle.value as? String) ?? preValue)
+        XCTAssertTrue(app.buttons["View Avoid Flag History"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testAttachmentsScreenShowsAddDocument() {
+        let app = XCUIApplication()
+        app.launch()
+        completeOnboardingIfPresent(app)
+
+        // Add candidate
+        app.tabBars.buttons["Add"].tap()
+        app.buttons["Tap to Add Candidate"].tap()
+        app.staticTexts["Lead Source"].tap()
+        app.staticTexts["Indeed"].tap()
+        app.buttons["Save"].tap()
+
+        // Go to Follow Up (no need to mark follow-up; open Settings->Positions isn't needed). If not present, try Search tab name.
+        // Prefer navigating via Follow Up when possible by enabling the toggle; otherwise locate from Search later.
+        app.tabBars.buttons["Follow Up"].tap()
+        // Open first cell if any, else go to Search
+        if !app.cells.element(boundBy: 0).waitForExistence(timeout: 2) {
+            app.tabBars.buttons["Recruiting Tracker"].tap()
+        }
+
+        // Attempt to open candidate detail by tapping any candidate cell
+        if app.cells.element(boundBy: 0).exists {
+            app.cells.element(boundBy: 0).tap()
+        }
+
+        // Navigate to Attached Files
+        let attachedFilesLink = app.buttons["Attached Files"]
+        if !attachedFilesLink.exists { app.swipeUp() }
+        XCTAssertTrue(attachedFilesLink.waitForExistence(timeout: 5))
+        attachedFilesLink.tap()
+
+        // Verify Add Document button exists
+        XCTAssertTrue(app.buttons["Add Document"].waitForExistence(timeout: 5))
+    }
+
+    // MARK: - Helpers
+    private func completeOnboardingIfPresent(_ app: XCUIApplication) {
+        // Detect onboarding by presence of Continue button or welcome text
+        let continueButton = app.buttons["Continue"]
+        let welcome = app.staticTexts["Welcome to\nRecruiting Tracker"]
+        if continueButton.waitForExistence(timeout: 2) || welcome.exists {
+            // Step 0 -> 1
+            if continueButton.exists { continueButton.tap() }
+
+            // Step 1: Company name
+            let companyNameField = app.textFields["Company Name"]
+            if companyNameField.waitForExistence(timeout: 5) {
+                companyNameField.tap()
+                companyNameField.typeText("Acme Inc")
+                app.buttons["Continue"].tap()
+            }
+
+            // Step 2: Position title/description
+            let titleField = app.textFields["Position Title"]
+            if titleField.waitForExistence(timeout: 5) {
+                titleField.tap(); titleField.typeText("Technician")
+                let descField = app.textFields["Position Description"]
+                if descField.waitForExistence(timeout: 2) {
+                    descField.tap(); descField.typeText("Experienced automotive tech")
+                }
+                app.buttons["Get Started"].tap()
+            }
+        }
+    }
 }
+
