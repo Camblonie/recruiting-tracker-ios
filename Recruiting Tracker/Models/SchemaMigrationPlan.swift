@@ -20,8 +20,7 @@ enum AppSchemaV1: VersionedSchema {
             Candidate.self,
             Company.self,
             Position.self,
-            CandidateFile.self,
-            SearchFilter.self
+            CandidateFile.self
         ]
     }
 }
@@ -46,8 +45,7 @@ class MigrationManager {
         let containerIdentifier = "iCloud.com.scottcampbell.Recruiting-Tracker"
         return ModelConfiguration(
             "RecruitingTrackerDB",
-            schema: Schema([Candidate.self, Company.self, Position.self, CandidateFile.self, SearchFilter.self]),
-            migrationPlan: AppMigrationPlan.self,
+            schema: Schema([Candidate.self, Company.self, Position.self, CandidateFile.self]),
             cloudKitDatabase: .private(containerIdentifier)
         )
     }
@@ -58,20 +56,20 @@ class MigrationManager {
             // First try creating with CloudKit configuration
             print("Creating ModelContainer with CloudKit configuration")
             let config = configureModelConfiguration()
-            return try ModelContainer(for: Candidate.self, Company.self, Position.self, CandidateFile.self, SearchFilter.self, configurations: config)
+            return try ModelContainer(for: Candidate.self, Company.self, Position.self, CandidateFile.self, configurations: config)
         } catch {
             print("Error creating CloudKit ModelContainer: \(error), trying alternative approach")
             
             // If that fails, try with basic configuration
             do {
                 print("Creating ModelContainer with basic configuration")
-                return try ModelContainer(for: Candidate.self, Company.self, Position.self, CandidateFile.self, SearchFilter.self)
+                return try ModelContainer(for: Candidate.self, Company.self, Position.self, CandidateFile.self)
             } catch {
                 print("Error creating basic ModelContainer: \(error), trying with explicit schema")
                 
                 // Last resort: try with explicit schema
                 do {
-                    let schema = Schema([Candidate.self, Company.self, Position.self, CandidateFile.self, SearchFilter.self])
+                    let schema = Schema([Candidate.self, Company.self, Position.self, CandidateFile.self])
                     print("Creating ModelContainer with explicit schema")
                     return try ModelContainer(for: schema)
                 } catch {

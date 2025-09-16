@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import QuickLook
+import UIKit
 
 struct FileAttachmentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -15,7 +16,7 @@ struct FileAttachmentView: View {
     // Allowed content types for import (PDF, images, and DOCX)
     private var allowedContentTypes: [UTType] {
         var types: [UTType] = [.pdf, .image]
-        if let docx = UTType("org.openxmlformats.wordprocessingml.document") {
+        if let docx = UTType(filenameExtension: "docx") {
             types.append(docx)
         }
         return types
@@ -31,9 +32,9 @@ struct FileAttachmentView: View {
                 }
             }
             
-            if let files = candidate.attachedFiles, !files.isEmpty {
+            if !candidate.attachedFiles.isEmpty {
                 Section("Attached Files") {
-                    ForEach(candidate.attachedFiles ?? []) { file in
+                    ForEach(candidate.attachedFiles) { file in
                         FileRow(file: file)
                     }
                     .onDelete(perform: deleteFiles)
@@ -88,11 +89,8 @@ struct FileAttachmentView: View {
                     fileData: data,
                     fileType: typeIdentifier
                 )
-                // Initialize attachedFiles if nil
-                if candidate.attachedFiles == nil {
-                    candidate.attachedFiles = []
-                }
-                candidate.attachedFiles?.append(attachment)
+                // Append to relationship array
+                candidate.attachedFiles.append(attachment)
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -101,24 +99,12 @@ struct FileAttachmentView: View {
     }
     
     private func deleteFiles(at offsets: IndexSet) {
-        // Ensure we have attachedFiles before proceeding
-        guard var files = candidate.attachedFiles else { return }
-        
-        // Get the files to delete
-        let filesToDelete = offsets.map { files[$0] }
-        
-        // Delete each file
-        for file in filesToDelete {
-            modelContext.delete(file)
-        }
-        
-        // Remove the files from the array
+        // Delete each file from context and remove from relationship
         for index in offsets.sorted(by: >) {
-            files.remove(at: index)
+            let file = candidate.attachedFiles[index]
+            modelContext.delete(file)
+            candidate.attachedFiles.remove(at: index)
         }
-        
-        // Update the candidate's attachedFiles
-        candidate.attachedFiles = files
     }
 }
 
