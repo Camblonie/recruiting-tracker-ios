@@ -70,13 +70,10 @@ final class Recruiting_TrackerUITests: XCTestCase {
         XCTAssertTrue(addButton.waitForExistence(timeout: 5))
         addButton.tap()
 
-        // Select a Lead Source (required)
-        let leadSourceCell = app.staticTexts["Lead Source"]
-        XCTAssertTrue(leadSourceCell.waitForExistence(timeout: 5))
-        leadSourceCell.tap()
-
+        // Select a Lead Source (required) via table cell
+        tapFormRow(app, label: "Lead Source")
         let indeed = app.staticTexts["Indeed"]
-        XCTAssertTrue(indeed.waitForExistence(timeout: 5))
+        XCTAssertTrue(indeed.waitForExistence(timeout: 10))
         indeed.tap()
 
         // Save
@@ -103,7 +100,7 @@ final class Recruiting_TrackerUITests: XCTestCase {
         nameField.tap()
         nameField.typeText("UITest FollowUp")
 
-        app.staticTexts["Lead Source"].tap()
+        tapFormRow(app, label: "Lead Source")
         app.staticTexts["Indeed"].tap()
 
         // Enable Needs Follow-up toggle (may require scrolling)
@@ -200,31 +197,27 @@ final class Recruiting_TrackerUITests: XCTestCase {
         app.launch()
         completeOnboardingIfPresent(app)
 
-        // Add candidate
+        // Add candidate (enable follow up for easy discovery in list)
         app.tabBars.buttons["Add"].tap()
         app.buttons["Tap to Add Candidate"].tap()
-        app.staticTexts["Lead Source"].tap()
+        tapFormRow(app, label: "Lead Source")
         app.staticTexts["Indeed"].tap()
+        if !app.switches["Needs Follow-up"].exists { app.swipeUp() }
+        let followSwitch2 = app.switches["Needs Follow-up"]
+        if followSwitch2.value as? String == "0" { followSwitch2.tap() }
         app.buttons["Save"].tap()
 
-        // Go to Follow Up (no need to mark follow-up; open Settings->Positions isn't needed). If not present, try Search tab name.
-        // Prefer navigating via Follow Up when possible by enabling the toggle; otherwise locate from Search later.
+        // Navigate to Follow Up and open the first cell
         app.tabBars.buttons["Follow Up"].tap()
-        // Open first cell if any, else go to Search
-        if !app.cells.element(boundBy: 0).waitForExistence(timeout: 2) {
-            app.tabBars.buttons["Recruiting Tracker"].tap()
-        }
+        XCTAssertTrue(app.cells.element(boundBy: 0).waitForExistence(timeout: 5))
+        app.cells.element(boundBy: 0).tap()
 
-        // Attempt to open candidate detail by tapping any candidate cell
-        if app.cells.element(boundBy: 0).exists {
-            app.cells.element(boundBy: 0).tap()
-        }
-
-        // Navigate to Attached Files
-        let attachedFilesLink = app.buttons["Attached Files"]
-        if !attachedFilesLink.exists { app.swipeUp() }
-        XCTAssertTrue(attachedFilesLink.waitForExistence(timeout: 5))
-        attachedFilesLink.tap()
+        // Navigate to Attached Files (NavigationLink)
+        var attachedFilesElement = app.staticTexts["Attached Files"]
+        if !attachedFilesElement.exists { attachedFilesElement = app.buttons["Attached Files"] }
+        if !attachedFilesElement.exists { app.swipeUp() }
+        XCTAssertTrue(attachedFilesElement.waitForExistence(timeout: 5))
+        attachedFilesElement.tap()
 
         // Verify Add Document button exists
         XCTAssertTrue(app.buttons["Add Document"].waitForExistence(timeout: 5))
@@ -258,6 +251,14 @@ final class Recruiting_TrackerUITests: XCTestCase {
                 app.buttons["Get Started"].tap()
             }
         }
+    }
+
+    private func tapFormRow(_ app: XCUIApplication, label: String) {
+        // SwiftUI Form rows are table cells; find by static text label
+        let cell = app.tables.cells.containing(.staticText, identifier: label).element
+        if !cell.exists { app.swipeUp() }
+        XCTAssertTrue(cell.waitForExistence(timeout: 5))
+        cell.tap()
     }
 }
 
