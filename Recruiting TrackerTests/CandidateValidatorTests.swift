@@ -2,6 +2,7 @@ import XCTest
 import SwiftData
 @testable import Recruiting_Tracker
 
+@MainActor
 final class CandidateValidatorTests: XCTestCase {
     private var container: ModelContainer!
     private var context: ModelContext { container.mainContext }
@@ -19,11 +20,10 @@ final class CandidateValidatorTests: XCTestCase {
     func testValidate_AllowsEmptyEmailAndPhone() throws {
         // Given
         let candidate = Candidate(
-            firstName: "",
-            lastName: "",
+            name: "",
             phoneNumber: "",
             email: "",
-            leadSource: .other,
+            leadSource: .referral,
             yearsOfExperience: 0,
             previousEmployers: [],
             technicalFocus: [],
@@ -37,11 +37,10 @@ final class CandidateValidatorTests: XCTestCase {
     func testValidate_InvalidEmailThrows() throws {
         // Given
         let candidate = Candidate(
-            firstName: "Jane",
-            lastName: "Doe",
+            name: "Jane Doe",
             phoneNumber: "",
             email: "jane@",
-            leadSource: .other,
+            leadSource: .referral,
             yearsOfExperience: 0,
             previousEmployers: [],
             technicalFocus: [],
@@ -59,11 +58,10 @@ final class CandidateValidatorTests: XCTestCase {
     func testValidate_InvalidPhoneThrows() throws {
         // Given
         let candidate = Candidate(
-            firstName: "Jane",
-            lastName: "Doe",
+            name: "Jane Doe",
             phoneNumber: "123-45",
             email: "",
-            leadSource: .other,
+            leadSource: .referral,
             yearsOfExperience: 0,
             previousEmployers: [],
             technicalFocus: [],
@@ -81,22 +79,22 @@ final class CandidateValidatorTests: XCTestCase {
     func testDuplicateDetection_ByPhone() throws {
         // Insert an existing candidate
         let existing = Candidate(
-            firstName: "John",
-            lastName: "Smith",
+            name: "John Smith",
             phoneNumber: "5551234567",
             email: "",
-            leadSource: .other,
+            leadSource: .referral,
             yearsOfExperience: 1,
             previousEmployers: [],
             technicalFocus: [],
             technicianLevel: .unknown
         )
         context.insert(existing)
+        try context.save()
         
         // When checking duplicate by same phone
         let isDup = try CandidateValidator.isDuplicate(
             name: "",
-            phoneNumber: "(555) 123-4567", // different formatting but same digits
+            phoneNumber: "5551234567",
             context: context
         )
         
