@@ -54,6 +54,7 @@ struct CSVMappingView: View {
                     mappingRow(field: .name)
                     mappingRow(field: .email)
                     mappingRow(field: .leadSource)
+                    mappingRow(field: .company)
                     mappingRow(field: .yearsExperience)
                     mappingRow(field: .technicianLevel)
                     mappingRow(field: .hiringStatus)

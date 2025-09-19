@@ -17,20 +17,22 @@ class DatabaseExporter {
         return export
     }
     
-    static func exportToCSV(candidates: [Candidate]) -> String {
-        // Updated schema: First Name, Last Name, Contacted, Notes; booleans as Yes/No
-        var csv = "First Name,Last Name,Email,Phone,Lead Source,Years Experience,Technician Level,Hiring Status,Contacted,Hot Candidate,Needs Follow-up,Needs Insurance,Notes,Date Entered\n"
+    static func exportToCSV(candidates: [Candidate], companies: [Company]) -> String {
+        // Updated schema includes Company and uses Skill Level label; booleans as Yes/No
+        var csv = "First Name,Last Name,Email,Phone,Lead Source,Company,Years Experience,Skill Level,Hiring Status,Contacted,Hot Candidate,Needs Follow-up,Needs Insurance,Notes,Date Entered\n"
         
         for candidate in candidates {
             let parts = splitName(candidate.name)
             let contacted = candidate.hiringStatus == .notContacted ? "No" : "Yes"
+            let companyName = companyName(for: candidate, companies: companies)
             csv += "\"\(parts.first)\"," // First Name
             csv += "\"\(parts.last)\"," // Last Name
             csv += "\"\(candidate.email)\"," // Email
             csv += "\"\(candidate.phoneNumber)\"," // Phone
             csv += "\"\(candidate.leadSource.rawValue)\"," // Lead Source
+            csv += "\"\(companyName)\"," // Company
             csv += "\(candidate.yearsOfExperience)," // Years Experience
-            csv += "\"\(candidate.technicianLevel.rawValue)\"," // Technician Level
+            csv += "\"\(candidate.technicianLevel.rawValue)\"," // Skill Level
             csv += "\"\(candidate.hiringStatus.rawValue)\"," // Hiring Status
             csv += "\"\(contacted)\"," // Contacted
             csv += "\"\(candidate.isHotCandidate ? "Yes" : "No")\"," // Hot Candidate
@@ -50,5 +52,13 @@ class DatabaseExporter {
         if comps.count == 1 { return (String(first), "") }
         let last = comps.dropFirst().joined(separator: " ")
         return (String(first), last)
+    }
+
+    private static func companyName(for candidate: Candidate, companies: [Company]) -> String {
+        guard let pos = candidate.position else { return "" }
+        if let co = companies.first(where: { $0.positions.contains(where: { $0 === pos }) }) {
+            return co.name
+        }
+        return ""
     }
 }

@@ -26,6 +26,7 @@ final class CSVImporter {
         case leadSource = "Lead Source"
         case yearsExperience = "Years Experience"
         case technicianLevel = "Skill Level"
+        case company = "Company"
         case hiringStatus = "Hiring Status"
         case contacted = "Contacted"
         case hotCandidate = "Hot Candidate"
@@ -179,6 +180,30 @@ final class CSVImporter {
             candidate.needsFollowUp = needsFollowUp
             candidate.needsHealthInsurance = needsInsurance
             if !notes.isEmpty { candidate.notes = notes }
+            // Associate to Company (via default "General" Position) when provided
+            if let companyName = val(.company)?.trimmingCharacters(in: .whitespacesAndNewlines), !companyName.isEmpty {
+                do {
+                    let companies = try context.fetch(FetchDescriptor<Company>())
+                    let company: Company
+                    if let existing = companies.first(where: { $0.name.caseInsensitiveCompare(companyName) == .orderedSame }) {
+                        company = existing
+                    } else {
+                        let created = Company(name: companyName)
+                        context.insert(created)
+                        company = created
+                    }
+                    let defaultTitle = "General"
+                    if let existingPos = company.positions.first(where: { $0.title == defaultTitle }) {
+                        candidate.position = existingPos
+                    } else {
+                        let createdPos = Position(title: defaultTitle, positionDescription: "Auto-created")
+                        company.positions.append(createdPos)
+                        candidate.position = createdPos
+                    }
+                } catch {
+                    // Swallow company association errors; candidate itself will still import
+                }
+            }
             // If 'Contacted' provided, nudge status when not explicitly set
             if contacted {
                 if hiringStatus == .notContacted { candidate.hiringStatus = .visitForInterview }
@@ -270,6 +295,7 @@ final class CSVImporter {
         ]) ?? -1
         mapping[.email] = find([Field.email.rawValue]) ?? -1
         mapping[.leadSource] = find([Field.leadSource.rawValue, "source"]) ?? -1
+        mapping[.company] = find([Field.company.rawValue, "company name", "employer", "organization", "org"]) ?? -1
         mapping[.yearsExperience] = find([Field.yearsExperience.rawValue, "experience", "years exp", "yoe"]) ?? -1
         mapping[.technicianLevel] = find([
             Field.technicianLevel.rawValue,

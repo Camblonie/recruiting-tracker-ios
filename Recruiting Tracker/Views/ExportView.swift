@@ -25,6 +25,7 @@ struct ExportView: View {
         "Phone",
         // Source and profile
         "Lead Source",
+        "Company",
         "Referral",
         "Experience",
         "Skill Level",

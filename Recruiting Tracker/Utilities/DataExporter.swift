@@ -203,9 +203,13 @@ class DataExporter {
             return candidate.leadSource.rawValue
         case "Referral":
             return candidate.referralName ?? ""
+        case "Company":
+            return companyName(for: candidate)
         case "Experience":
             return "\(candidate.yearsOfExperience) years"
-        case "Tech Level":
+        case "Skill Level":
+            return candidate.technicianLevel.rawValue
+        case "Tech Level": // legacy label support
             return candidate.technicianLevel.rawValue
         case "Previous Employers":
             return candidate.previousEmployers.map(\.rawValue).joined(separator: "; ")
@@ -249,9 +253,10 @@ class DataExporter {
             "Email",
             "Phone",
             "Lead Source",
+            "Company",
             "Referral",
             "Experience",
-            "Tech Level",
+            "Skill Level",
             "Previous Employers",
             "Technical Focus",
             "Hiring Status",
@@ -264,6 +269,20 @@ class DataExporter {
             "Notes",
             "Date Entered"
         ]
+    }
+
+    // MARK: - Helpers
+    private func companyName(for candidate: Candidate) -> String {
+        guard let pos = candidate.position else { return "" }
+        // Fetch companies and locate the one owning this position
+        // Keep it simple; datasets are expected to be modest
+        let descriptor = FetchDescriptor<Company>()
+        if let companies = try? modelContext.fetch(descriptor) {
+            if let company = companies.first(where: { $0.positions.contains(where: { $0 === pos }) }) {
+                return company.name
+            }
+        }
+        return ""
     }
 
     private func splitName(_ full: String) -> (first: String, last: String) {

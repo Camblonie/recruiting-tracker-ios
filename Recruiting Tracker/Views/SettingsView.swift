@@ -396,7 +396,7 @@ struct SettingsView: View {
             exportString = DatabaseExporter.exportDatabase(candidates: candidates)
             fileName = "recruiting_database_export.txt"
         case .csv:
-            exportString = DatabaseExporter.exportToCSV(candidates: candidates)
+            exportString = DatabaseExporter.exportToCSV(candidates: candidates, companies: companies)
             fileName = "recruiting_database_export.csv"
         }
         
