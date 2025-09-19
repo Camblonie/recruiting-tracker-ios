@@ -45,16 +45,18 @@ final class DataExporterTests: XCTestCase {
         context.insert(c2)
         try context.save()
         
-        // When: exporting CSV with default headers
+        // When: exporting CSV with default headers (now includes First/Last Name)
         let exporter = DataExporter(modelContext: context)
         let config = ExportConfiguration(format: .csv, includeFields: [], dateRange: nil, filter: nil, sortOption: nil)
         let data = try exporter.exportData(config: config)
         let csv = String(data: data, encoding: .utf8) ?? ""
         
-        // Then: header row and both names present
-        XCTAssertTrue(csv.hasPrefix("Name,Email,Phone,Lead Source"), "CSV should start with default headers")
-        XCTAssertTrue(csv.contains("Alice Smith"))
-        XCTAssertTrue(csv.contains("Bob Jones"))
+        // Then: header row and both names present split across first/last
+        XCTAssertTrue(csv.hasPrefix("First Name,Last Name,Email,Phone,Lead Source"), "CSV should start with updated default headers")
+        XCTAssertTrue(csv.contains("Alice"))
+        XCTAssertTrue(csv.contains("Smith"))
+        XCTAssertTrue(csv.contains("Bob"))
+        XCTAssertTrue(csv.contains("Jones"))
         XCTAssertTrue(csv.contains("1112223333"))
         XCTAssertTrue(csv.contains("4445556666"))
     }
@@ -80,13 +82,13 @@ final class DataExporterTests: XCTestCase {
         let config = ExportConfiguration(format: .json, includeFields: [], dateRange: nil, filter: nil, sortOption: nil)
         let data = try exporter.exportData(config: config)
         
-        // Then: decode JSON and validate keys
+        // Then: decode JSON and validate keys (updated defaults use split name fields)
         let obj = try JSONSerialization.jsonObject(with: data, options: [])
         guard let arr = obj as? [[String: Any]] else {
             return XCTFail("Expected array of dictionaries")
         }
-        // Find candidate row by name
-        let row = arr.first { ($0["Name"] as? String) == "Charlie Test" }
+        // Find candidate row by split name
+        let row = arr.first { ($0["First Name"] as? String) == "Charlie" && ($0["Last Name"] as? String)?.contains("Test") == true }
         XCTAssertNotNil(row)
         XCTAssertEqual(row?["Email"] as? String, "charlie@example.com")
         XCTAssertEqual(row?["Phone"] as? String, "9998887777")

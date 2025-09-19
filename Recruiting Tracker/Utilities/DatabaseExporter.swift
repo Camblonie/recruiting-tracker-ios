@@ -18,22 +18,37 @@ class DatabaseExporter {
     }
     
     static func exportToCSV(candidates: [Candidate]) -> String {
-        var csv = "Name,Phone,Email,Lead Source,Years Experience,Technician Level,Hiring Status,Hot Candidate,Needs Follow Up,Needs Insurance,Date Entered\n"
+        // Updated schema: First Name, Last Name, Contacted, Notes; booleans as Yes/No
+        var csv = "First Name,Last Name,Email,Phone,Lead Source,Years Experience,Technician Level,Hiring Status,Contacted,Hot Candidate,Needs Follow-up,Needs Insurance,Notes,Date Entered\n"
         
         for candidate in candidates {
-            csv += "\"\(candidate.name)\","
-            csv += "\"\(candidate.phoneNumber)\","
-            csv += "\"\(candidate.email)\","
-            csv += "\"\(candidate.leadSource.rawValue)\","
-            csv += "\(candidate.yearsOfExperience),"
-            csv += "\"\(candidate.technicianLevel.rawValue)\","
-            csv += "\"\(candidate.hiringStatus.rawValue)\","
-            csv += "\(candidate.isHotCandidate),"
-            csv += "\(candidate.needsFollowUp),"
-            csv += "\(candidate.needsHealthInsurance),"
-            csv += "\"\(candidate.dateEntered.formatted())\"\n"
+            let parts = splitName(candidate.name)
+            let contacted = candidate.hiringStatus == .notContacted ? "No" : "Yes"
+            csv += "\"\(parts.first)\"," // First Name
+            csv += "\"\(parts.last)\"," // Last Name
+            csv += "\"\(candidate.email)\"," // Email
+            csv += "\"\(candidate.phoneNumber)\"," // Phone
+            csv += "\"\(candidate.leadSource.rawValue)\"," // Lead Source
+            csv += "\(candidate.yearsOfExperience)," // Years Experience
+            csv += "\"\(candidate.technicianLevel.rawValue)\"," // Technician Level
+            csv += "\"\(candidate.hiringStatus.rawValue)\"," // Hiring Status
+            csv += "\"\(contacted)\"," // Contacted
+            csv += "\"\(candidate.isHotCandidate ? "Yes" : "No")\"," // Hot Candidate
+            csv += "\"\(candidate.needsFollowUp ? "Yes" : "No")\"," // Needs Follow-up
+            csv += "\"\(candidate.needsHealthInsurance ? "Yes" : "No")\"," // Needs Insurance
+            csv += "\"\(candidate.notes.replacingOccurrences(of: "\"", with: "\"\""))\"," // Notes escaped
+            csv += "\"\(candidate.dateEntered.formatted(date: .numeric, time: .omitted))\"\n" // Date Entered
         }
         
         return csv
+    }
+
+    // Split a full name into first and last parts for export convenience
+    private static func splitName(_ full: String) -> (first: String, last: String) {
+        let comps = full.split(whereSeparator: { $0.isWhitespace })
+        guard let first = comps.first else { return (full, "") }
+        if comps.count == 1 { return (String(first), "") }
+        let last = comps.dropFirst().joined(separator: " ")
+        return (String(first), last)
     }
 }

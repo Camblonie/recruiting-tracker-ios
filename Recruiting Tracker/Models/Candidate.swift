@@ -31,11 +31,14 @@ enum TechnicalFocus: String, Codable, CaseIterable {
 }
 
 enum TechnicianLevel: String, Codable, CaseIterable {
+    // Renamed in UI to "Skill Level"; keeping enum name for compatibility
     case unknown = "Unknown"
     case a = "A"
     case b = "B"
     case c = "C"
     case lubeTech = "Lube Tech"
+    case salesAssoc = "Sales Assoc"
+    case manager = "Manager"
 }
 
 enum HiringStatus: String, Codable, CaseIterable {

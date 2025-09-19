@@ -113,6 +113,7 @@ struct CandidateSearchResults: View {
     @Binding var showingDeleteConfirmation: Bool
     
     @Query private var candidates: [Candidate]
+    @Query private var companies: [Company]
     
     // Filtered candidates based on search text
     private var filteredCandidates: [Candidate] {
@@ -150,12 +151,30 @@ struct CandidateSearchResults: View {
                     candidate.position?.title ?? "No Position Assigned"
                 }
                 
-                // Sort position keys alphabetically with "No Position" at the end
-                let sortedPositions = groupedCandidates.keys.sorted { 
-                    if $0 == "No Position Assigned" { return false }
-                    if $1 == "No Position Assigned" { return true }
-                    return $0 < $1
-                }
+                // Sort section headers. If sorting by company, use the company's name of the first candidate in the group.
+                let sortedPositions: [String] = {
+                    let keys = Array(groupedCandidates.keys)
+                    func companyNameForGroup(_ key: String) -> String {
+                        guard let arr = groupedCandidates[key], let first = arr.first, let pos = first.position else { return "" }
+                        if let comp = companies.first(where: { $0.positions.contains(where: { $0 === pos }) }) {
+                            return comp.name
+                        }
+                        return ""
+                    }
+                    return keys.sorted { a, b in
+                        // Always push "No Position Assigned" to the end
+                        if a == "No Position Assigned" { return false }
+                        if b == "No Position Assigned" { return true }
+                        switch sortOption {
+                        case .companyAsc:
+                            return companyNameForGroup(a).localizedCaseInsensitiveCompare(companyNameForGroup(b)) == .orderedAscending
+                        case .companyDesc:
+                            return companyNameForGroup(a).localizedCaseInsensitiveCompare(companyNameForGroup(b)) == .orderedDescending
+                        default:
+                            return a < b
+                        }
+                    }
+                }()
                 
                 ForEach(sortedPositions, id: \.self) { positionName in
                     if let candidatesForPosition = groupedCandidates[positionName] {
@@ -298,6 +317,10 @@ struct CandidateRow: View {
             return "C"
         case .lubeTech:
             return "L"
+        case .salesAssoc:
+            return "SA"
+        case .manager:
+            return "M"
         }
     }
     
@@ -330,6 +353,18 @@ struct CandidateRow: View {
         case .lubeTech:
             return LinearGradient(
                 gradient: Gradient(colors: [Color(hex: "AF52DE"), Color(hex: "C969E6")]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        case .salesAssoc:
+            return LinearGradient(
+                gradient: Gradient(colors: [Color(hex: "00BFA6"), Color(hex: "26D09E")]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        case .manager:
+            return LinearGradient(
+                gradient: Gradient(colors: [Color(hex: "DAA520"), Color(hex: "FFD700")]),
                 startPoint: .leading,
                 endPoint: .trailing
             )

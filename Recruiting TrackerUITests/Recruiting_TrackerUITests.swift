@@ -95,10 +95,14 @@ final class Recruiting_TrackerUITests: XCTestCase {
         app.tabBars.buttons["Add"].tap()
         app.buttons["Tap to Add Candidate"].tap()
 
-        let nameField = app.textFields["Name"]
-        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
-        nameField.tap()
-        nameField.typeText("UITest FollowUp")
+        let firstNameField = app.textFields["First Name"]
+        XCTAssertTrue(firstNameField.waitForExistence(timeout: 5))
+        firstNameField.tap()
+        firstNameField.typeText("UITest")
+        let lastNameField = app.textFields["Last Name"]
+        XCTAssertTrue(lastNameField.waitForExistence(timeout: 5))
+        lastNameField.tap()
+        lastNameField.typeText("FollowUp")
 
         tapFormRow(app, label: "Lead Source")
         app.staticTexts["Indeed"].tap()
@@ -157,9 +161,12 @@ final class Recruiting_TrackerUITests: XCTestCase {
         // Add candidate
         app.tabBars.buttons["Add"].tap()
         app.buttons["Tap to Add Candidate"].tap()
-        let nameField = app.textFields["Name"]
-        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
-        nameField.tap(); nameField.typeText("UITest Avoid")
+        let firstNameField = app.textFields["First Name"]
+        XCTAssertTrue(firstNameField.waitForExistence(timeout: 5))
+        firstNameField.tap(); firstNameField.typeText("UITest")
+        let lastNameField = app.textFields["Last Name"]
+        XCTAssertTrue(lastNameField.waitForExistence(timeout: 5))
+        lastNameField.tap(); lastNameField.typeText("Avoid")
         app.staticTexts["Lead Source"].tap()
         app.staticTexts["Indeed"].tap()
         if !app.switches["Needs Follow-up"].exists { app.swipeUp() }

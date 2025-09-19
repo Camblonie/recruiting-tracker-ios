@@ -5,6 +5,7 @@ import PhotosUI
 struct OnboardingView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var isOnboarding: Bool
+    @AppStorage("didCompleteOnboarding") private var didCompleteOnboarding = false
     
     @State private var currentStep = 0
     @State private var companyName = ""
@@ -12,6 +13,8 @@ struct OnboardingView: View {
     @State private var companyIcon: Data?
     @State private var positionTitle = ""
     @State private var positionDescription = ""
+    @State private var showSaveError = false
+    @State private var saveErrorMessage = ""
     
     var body: some View {
         ZStack {
@@ -55,6 +58,11 @@ struct OnboardingView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
+        }
+        .alert("Save Error", isPresented: $showSaveError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveErrorMessage.isEmpty ? "Failed to save onboarding data. Please try again." : saveErrorMessage)
         }
     }
     
@@ -256,12 +264,14 @@ struct OnboardingView: View {
             do {
                 try modelContext.save()
                 print("Company and position saved successfully")
+                // Mark onboarding complete only on successful save
+                didCompleteOnboarding = true
+                isOnboarding = false
             } catch {
                 print("Error saving company: \(error)")
+                saveErrorMessage = error.localizedDescription
+                showSaveError = true
             }
-            
-            // End onboarding
-            isOnboarding = false
         }
     }
 }

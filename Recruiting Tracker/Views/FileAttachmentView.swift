@@ -42,6 +42,11 @@ struct FileAttachmentView: View {
             }
         }
         .navigationTitle("Documents")
+        .navigationBarTitleDisplayMode(.inline)
+        // Ensure high-contrast header for attachments view
+        .toolbarBackground(Color.slate, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .fileImporter(
             isPresented: $isImporting,
             allowedContentTypes: allowedContentTypes,

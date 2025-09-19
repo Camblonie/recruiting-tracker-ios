@@ -40,6 +40,11 @@ struct CompanyEditorView: View {
                 }
             }
             .navigationTitle("Edit Company")
+            .navigationBarTitleDisplayMode(.inline)
+            // Ensure high contrast navigation title/buttons for editing screens
+            .toolbarBackground(Color.slate, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
