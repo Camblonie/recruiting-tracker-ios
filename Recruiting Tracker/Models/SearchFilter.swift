@@ -177,6 +177,8 @@ enum SortOption: String, CaseIterable {
     case dateAddedOldest = "Date Added (Oldest)"
     case experienceHighest = "Experience (Highest)"
     case experienceLowest = "Experience (Lowest)"
+    case companyAsc = "Company (A-Z)"
+    case companyDesc = "Company (Z-A)"
 }
 
 // MARK: - Sort Descriptors
@@ -195,6 +197,9 @@ extension SearchFilter {
             return SortDescriptor(\Candidate.yearsOfExperience, order: .reverse)
         case .experienceLowest:
             return SortDescriptor(\Candidate.yearsOfExperience, order: .forward)
+        case .companyAsc, .companyDesc:
+            // Fallback to name sorting; UI will apply company ordering after fetch
+            return SortDescriptor(\Candidate.name, order: option == .companyAsc ? .forward : .reverse)
         }
     }
 }

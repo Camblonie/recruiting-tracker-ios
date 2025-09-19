@@ -9,9 +9,12 @@ struct CandidateFormView: View {
     @Binding var isPresented: Bool
     @Query private var candidates: [Candidate]
     @Query private var positions: [Position]
+    @Query private var companies: [Company]
     
     // Form Fields
-    @State private var name = ""
+    // Split name entry to improve data quality; composed on save to Candidate.name
+    @State private var firstName = ""
+    @State private var lastName = ""
     @State private var phoneNumber = ""
     @State private var email = ""
     @State private var leadSource: LeadSource?
@@ -21,6 +24,7 @@ struct CandidateFormView: View {
     @State private var selectedFocus: Set<TechnicalFocus> = []
     @State private var technicianLevel: TechnicianLevel?
     @State private var selectedPosition: Position?
+    @State private var selectedCompany: Company?
     @State private var hiringStatus = HiringStatus.notContacted
     @State private var needsFollowUp = false
     @State private var isHotCandidate = false
@@ -47,8 +51,10 @@ struct CandidateFormView: View {
         NavigationView {
             Form {
                 Section("Basic Information") {
-                    TextField("Name", text: $name)
-                        .textContentType(.name)
+                    TextField("First Name", text: $firstName)
+                        .textContentType(.givenName)
+                    TextField("Last Name", text: $lastName)
+                        .textContentType(.familyName)
                     
                     PhoneTextField(text: $phoneNumber)
                     
@@ -72,10 +78,27 @@ struct CandidateFormView: View {
                 Section("Experience") {
                     Stepper("Years of Experience: \(yearsOfExperience)", value: $yearsOfExperience, in: 0...50)
                     
-                    if !positions.isEmpty {
-                        Picker("Position Applied To", selection: $selectedPosition) {
-                            Text("Select a position").tag(nil as Position?)
-                            ForEach(positions) { position in
+                    // Company selection (optional). Positions list is filtered by selected company when set.
+                    if !companies.isEmpty {
+                        Picker("Company", selection: $selectedCompany) {
+                            Text("No company").tag(nil as Company?)
+                            ForEach(companies) { company in
+                                Text(company.name).tag(company as Company?)
+                            }
+                        }
+                        .onChange(of: selectedCompany) { _, newValue in
+                            // Clear position if it doesn't belong to the newly selected company
+                            if let newCompany = newValue, let pos = selectedPosition,
+                               !newCompany.positions.contains(where: { $0 === pos }) {
+                                selectedPosition = nil
+                            }
+                        }
+                    }
+                    let availablePositions = selectedCompany?.positions ?? positions
+                    if !availablePositions.isEmpty {
+                        Picker("Position", selection: $selectedPosition) {
+                            Text("No position").tag(nil as Position?)
+                            ForEach(availablePositions) { position in
                                 Text(position.title).tag(position as Position?)
                             }
                         }
@@ -93,7 +116,7 @@ struct CandidateFormView: View {
                         selected: $selectedFocus
                     )
                     
-                    Picker("Technician Level", selection: $technicianLevel) {
+                    Picker("Skill Level", selection: $technicianLevel) {
                         Text("Select a level").tag(nil as TechnicianLevel?)
                         ForEach(TechnicianLevel.allCases, id: \.self) { level in
                             Text(level.rawValue).tag(level as TechnicianLevel?)
@@ -148,6 +171,7 @@ struct CandidateFormView: View {
                 }
             }
             .navigationTitle("New Candidate")
+            .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(
                 leading: Button("Cancel") {
                     isPresented = false
@@ -157,6 +181,10 @@ struct CandidateFormView: View {
                 }
                 .disabled(isProcessing)
             )
+            // Ensure high contrast navigation title/buttons for editing screens
+            .toolbarBackground(Color.slate, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .onChange(of: selectedPhotoItem) { oldValue, newValue in
                 Task {
                     if let data = try? await newValue?.loadTransferable(type: Data.self) {
@@ -201,8 +229,15 @@ struct CandidateFormView: View {
                     throw ValidationError.missingRequiredField("Please select a Lead Source")
                 }
                 
+                // Compose full name from first/last; trim to avoid trailing spaces when last name is empty
+                let fullName = [firstName, lastName]
+                    .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+                    .joined(separator: " ")
+                    .trimmingCharacters(in: .whitespaces)
+                
+                // Create the candidate; position may be set below after company logic
                 let candidate = Candidate(
-                    name: name,
+                    name: fullName,
                     phoneNumber: phoneNumber,
                     email: email,
                     leadSource: leadSource,
@@ -233,6 +268,18 @@ struct CandidateFormView: View {
                 candidate.socialMediaLinks = socialMediaLinks.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
                 candidate.notes = notes
                 
+                // If a company is chosen but no position selected, create/find a generic position to associate
+                if candidate.position == nil, let company = selectedCompany {
+                    let defaultTitle = "General"
+                    if let existing = company.positions.first(where: { $0.title == defaultTitle }) {
+                        candidate.position = existing
+                    } else {
+                        let created = Position(title: defaultTitle, positionDescription: "Auto-created")
+                        company.positions.append(created)
+                        candidate.position = created
+                    }
+                }
+
                 // Save to database
                 modelContext.insert(candidate)
                 isPresented = false

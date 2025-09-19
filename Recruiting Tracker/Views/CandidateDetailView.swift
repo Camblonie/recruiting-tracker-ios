@@ -7,6 +7,7 @@ struct CandidateDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     let candidate: Candidate
+    @Query private var companies: [Company]
     
     @State private var showingEditForm = false
     @State private var showingDeleteConfirmation = false
@@ -26,12 +27,15 @@ struct CandidateDetailView: View {
                 if let referralName = candidate.referralName {
                     LabeledContent("Referred By", value: referralName)
                 }
+                if let compName = companyName(for: candidate) {
+                    LabeledContent("Company", value: compName)
+                }
             }
             
             // Experience
             Section("Experience") {
                 LabeledContent("Years of Experience", value: "\(candidate.yearsOfExperience)")
-                LabeledContent("Technician Level", value: candidate.technicianLevel.rawValue)
+                LabeledContent("Skill Level", value: candidate.technicianLevel.rawValue)
                 
                 DisclosureGroup("Previous Employers") {
                     ForEach(candidate.previousEmployers, id: \.self) { employer in
@@ -162,6 +166,10 @@ struct CandidateDetailView: View {
                 }
             }
         }
+        // Ensure strong contrast for navigation title on detail/editing flows
+        .toolbarBackground(Color.slate, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .alert("Delete Candidate", isPresented: $showingDeleteConfirmation) {
             Button("Delete", role: .destructive) {
                 deleteCandidate()
@@ -188,6 +196,10 @@ struct CandidateDetailView: View {
             NavigationView {
                 CandidateEditView(candidate: candidate, isPresented: $showingEditForm)
                     .navigationBarTitleDisplayMode(.inline)
+                    // Ensure strong contrast for the edit sheet header
+                    .toolbarBackground(Color.slate, for: .navigationBar)
+                    .toolbarBackground(.visible, for: .navigationBar)
+                    .toolbarColorScheme(.dark, for: .navigationBar)
             }
         }
         .sheet(isPresented: $showingAvoidHistory) {
@@ -248,7 +260,8 @@ struct CandidateEditView: View {
     let candidate: Candidate
     
     // Form Fields
-    @State private var name: String
+    @State private var firstName: String
+    @State private var lastName: String
     @State private var phoneNumber: String
     @State private var email: String
     @State private var leadSource: LeadSource
@@ -282,13 +295,25 @@ struct CandidateEditView: View {
     @State private var showingDeleteConfirmation = false
     
     @Query private var positions: [Position]
+    @Query private var companies: [Company]
+    @State private var selectedCompany: Company?
     
     init(candidate: Candidate, isPresented: Binding<Bool>) {
         self.candidate = candidate
         self._isPresented = isPresented
         
         // Initialize state from existing candidate
-        _name = State(initialValue: candidate.name)
+        let parts = candidate.name.split(whereSeparator: { $0.isWhitespace })
+        if let f = parts.first {
+            _firstName = State(initialValue: String(f))
+        } else {
+            _firstName = State(initialValue: "")
+        }
+        if parts.count > 1 {
+            _lastName = State(initialValue: parts.dropFirst().joined(separator: " "))
+        } else {
+            _lastName = State(initialValue: "")
+        }
         _phoneNumber = State(initialValue: candidate.phoneNumber)
         _email = State(initialValue: candidate.email)
         _leadSource = State(initialValue: candidate.leadSource)
@@ -316,8 +341,10 @@ struct CandidateEditView: View {
     var body: some View {
         Form {
             Section("Basic Information") {
-                TextField("Name", text: $name)
-                    .textContentType(.name)
+                TextField("First Name", text: $firstName)
+                    .textContentType(.givenName)
+                TextField("Last Name", text: $lastName)
+                    .textContentType(.familyName)
                 
                 PhoneTextField(text: $phoneNumber)
                 
@@ -352,7 +379,7 @@ struct CandidateEditView: View {
                     selected: $selectedFocus
                 )
                 
-                Picker("Technician Level", selection: $technicianLevel) {
+                Picker("Skill Level", selection: $technicianLevel) {
                     ForEach(TechnicianLevel.allCases, id: \.self) { level in
                         Text(level.rawValue).tag(level)
                     }
@@ -375,10 +402,27 @@ struct CandidateEditView: View {
                         }
                     }
                 
-                if !positions.isEmpty {
+                if !companies.isEmpty {
+                    Picker("Company", selection: $selectedCompany) {
+                        Text("No company").tag(nil as Company?)
+                        ForEach(companies) { company in
+                            Text(company.name).tag(company as Company?)
+                        }
+                    }
+                    .onChange(of: selectedCompany) { _, newValue in
+                        // Clear position if it doesn't belong to the newly selected company
+                        if let newCompany = newValue, let pos = selectedPosition,
+                           !newCompany.positions.contains(where: { $0 === pos }) {
+                            selectedPosition = nil
+                        }
+                    }
+                }
+                
+                let availablePositions = selectedCompany?.positions ?? positions
+                if !availablePositions.isEmpty {
                     Picker("Position", selection: $selectedPosition) {
                         Text("No position").tag(nil as Position?)
-                        ForEach(positions) { position in
+                        ForEach(availablePositions) { position in
                             Text(position.title).tag(position as Position?)
                         }
                     }
@@ -469,6 +513,10 @@ struct CandidateEditView: View {
                     .cornerRadius(10)
             }
         }
+        .onAppear {
+            // Initialize selected company from the candidate's current position
+            selectedCompany = companyForPosition(candidate.position)
+        }
     }
     
     private func saveCandidate() {
@@ -477,7 +525,12 @@ struct CandidateEditView: View {
         Task {
             do {
                 // Update the candidate with edited values
-                candidate.name = name
+                let composedName = [firstName, lastName]
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
+                    .trimmingCharacters(in: .whitespaces)
+                candidate.name = composedName
                 candidate.phoneNumber = phoneNumber
                 candidate.email = email
                 candidate.leadSource = leadSource
@@ -497,6 +550,17 @@ struct CandidateEditView: View {
                 
                 // Update position assignment
                 candidate.position = selectedPosition
+                // If a company is chosen but no position selected, ensure association by creating/finding a generic position
+                if candidate.position == nil, let company = selectedCompany {
+                    let defaultTitle = "General"
+                    if let existing = company.positions.first(where: { $0.title == defaultTitle }) {
+                        candidate.position = existing
+                    } else {
+                        let created = Position(title: defaultTitle, positionDescription: "Auto-created")
+                        company.positions.append(created)
+                        candidate.position = created
+                    }
+                }
                 
                 // Only update avoid flag if it changed
                 if candidate.avoidCandidate != avoidCandidate {
@@ -536,6 +600,23 @@ struct CandidateEditView: View {
         // Delete the candidate and close the form
         modelContext.delete(candidate)
         isPresented = false
+    }
+}
+
+// MARK: - Helpers
+extension CandidateDetailView {
+    fileprivate func companyName(for candidate: Candidate) -> String? {
+        guard let pos = candidate.position else { return nil }
+        for company in companies { if company.positions.contains(where: { $0 === pos }) { return company.name } }
+        return nil
+    }
+}
+
+extension CandidateEditView {
+    fileprivate func companyForPosition(_ pos: Position?) -> Company? {
+        guard let pos else { return nil }
+        for company in companies { if company.positions.contains(where: { $0 === pos }) { return company } }
+        return nil
     }
 }
 

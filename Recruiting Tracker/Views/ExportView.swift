@@ -15,19 +15,28 @@ struct ExportView: View {
     @State private var showingError = false
     
     private let availableFields = [
+        // Preferred split name fields
+        "First Name",
+        "Last Name",
+        // Legacy combined name (kept for backwards compatibility)
         "Name",
+        // Contact info
         "Email",
         "Phone",
+        // Source and profile
         "Lead Source",
         "Referral",
         "Experience",
-        "Tech Level",
+        "Skill Level",
         "Previous Employers",
         "Technical Focus",
+        // Status
         "Hiring Status",
+        "Contacted",
         "Hot Candidate",
         "Needs Follow-up",
         "Avoid",
+        // Compensation & misc
         "Pay Scale",
         "Needs Insurance",
         "Notes",
@@ -125,6 +134,7 @@ struct ExportView: View {
                 }
             }
             .navigationTitle("Export Data")
+            .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(
                 leading: Button("Cancel") {
                     dismiss()
@@ -134,6 +144,10 @@ struct ExportView: View {
                 }
                 .disabled(configuration.includeFields.isEmpty || isExporting)
             )
+            // Ensure high contrast navigation title/buttons for editing screens
+            .toolbarBackground(Color.slate, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .overlay {
                 if isExporting {
                     ProgressView("Exporting...")

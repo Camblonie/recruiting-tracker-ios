@@ -12,32 +12,32 @@ import SwiftData
 struct Recruiting_TrackerApp: App {
     let modelContainer: ModelContainer
     @State private var isOnboarding = false
+    @AppStorage("didCompleteOnboarding") private var didCompleteOnboarding = false
     
     init() {
         do {
             // Include all @Model types used in the app to avoid container init failures
+            // Use a named, on-device persistent SQLite store
+            let config = ModelConfiguration(
+                "RecruitingTrackerDB",
+                schema: Schema([Company.self, Position.self, Candidate.self, CandidateFile.self]),
+                isStoredInMemoryOnly: false
+            )
             modelContainer = try ModelContainer(
                 for: Company.self, Position.self, Candidate.self, CandidateFile.self,
-                configurations: ModelConfiguration(isStoredInMemoryOnly: false)
+                configurations: config
             )
         } catch {
             // Graceful fallbacks to avoid crashing at launch
             if let container = try? MigrationManager.createContainer() {
                 print("Warning: Primary ModelContainer init failed; using MigrationManager container. Error: \(error)")
                 modelContainer = container
-            } else if let memoryContainer = try? ModelContainer(
-                for: Company.self, Position.self, Candidate.self, CandidateFile.self,
-                configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-            ) {
-                print("Warning: Using in-memory ModelContainer due to initialization errors. Error: \(error)")
-                modelContainer = memoryContainer
             } else {
-                // Last resort: explicit schema, in-memory
-                let schema = Schema([Company.self, Position.self, Candidate.self, CandidateFile.self])
+                // Last resort: basic persistent container (on-device store)
                 do {
-                    modelContainer = try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+                    modelContainer = try ModelContainer(for: Company.self, Position.self, Candidate.self, CandidateFile.self)
                 } catch {
-                    fatalError("Failed to create any ModelContainer: \(error)")
+                    fatalError("Failed to create any persistent ModelContainer: \(error)")
                 }
             }
         }
@@ -56,9 +56,9 @@ struct Recruiting_TrackerApp: App {
                 // Check if we need to show onboarding
                 let context = modelContainer.mainContext
                 let descriptor = FetchDescriptor<Company>()
-                if let companies = try? context.fetch(descriptor),
-                   companies.isEmpty {
-                    isOnboarding = true
+                if let companies = try? context.fetch(descriptor) {
+                    // Show onboarding only if there are no companies AND onboarding hasn't been completed
+                    isOnboarding = companies.isEmpty && !didCompleteOnboarding
                 }
             }
         }

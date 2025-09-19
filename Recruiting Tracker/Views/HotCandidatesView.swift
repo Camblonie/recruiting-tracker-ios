@@ -134,6 +134,18 @@ struct HotCandidatesView: View {
                 startPoint: .leading,
                 endPoint: .trailing
             )
+        case .salesAssoc:
+            return LinearGradient(
+                gradient: Gradient(colors: [Color(hex: "00BFA6"), Color(hex: "26D09E")]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        case .manager:
+            return LinearGradient(
+                gradient: Gradient(colors: [Color(hex: "DAA520"), Color(hex: "FFD700")]),
+                startPoint: .leading,
+                endPoint: .trailing
+            )
         }
     }
     
@@ -149,6 +161,10 @@ struct HotCandidatesView: View {
             return "C"
         case .lubeTech:
             return "LT"
+        case .salesAssoc:
+            return "SA"
+        case .manager:
+            return "M"
         }
     }
 }

@@ -186,7 +186,14 @@ class DataExporter {
     
     private func getValue(for field: String, from candidate: Candidate) -> String {
         switch field {
+        case "First Name":
+            let parts = splitName(candidate.name)
+            return parts.first
+        case "Last Name":
+            let parts = splitName(candidate.name)
+            return parts.last
         case "Name":
+            // Backwards-compatibility if a consumer selects legacy field
             return candidate.name
         case "Email":
             return candidate.email
@@ -206,6 +213,8 @@ class DataExporter {
             return candidate.technicalFocus.map(\.rawValue).joined(separator: "; ")
         case "Hiring Status":
             return candidate.hiringStatus.rawValue
+        case "Contacted":
+            return candidate.hiringStatus == .notContacted ? "No" : "Yes"
         case "Hot Candidate":
             return candidate.isHotCandidate ? "Yes" : "No"
         case "Needs Follow-up":
@@ -233,8 +242,10 @@ class DataExporter {
     }
     
     private var defaultHeaders: [String] {
+        // Default order prioritizes split name fields, then email/phone for common workflows
         [
-            "Name",
+            "First Name",
+            "Last Name",
             "Email",
             "Phone",
             "Lead Source",
@@ -244,6 +255,7 @@ class DataExporter {
             "Previous Employers",
             "Technical Focus",
             "Hiring Status",
+            "Contacted",
             "Hot Candidate",
             "Needs Follow-up",
             "Avoid",
@@ -252,5 +264,13 @@ class DataExporter {
             "Notes",
             "Date Entered"
         ]
+    }
+
+    private func splitName(_ full: String) -> (first: String, last: String) {
+        let comps = full.split(whereSeparator: { $0.isWhitespace })
+        guard let first = comps.first else { return (full, "") }
+        if comps.count == 1 { return (String(first), "") }
+        let last = comps.dropFirst().joined(separator: " ")
+        return (String(first), last)
     }
 }

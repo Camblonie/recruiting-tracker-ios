@@ -85,8 +85,8 @@ struct SearchFilterView: View {
                             }
                         }
                         
-                        // Technician Levels Card
-                        filterCard(title: "Technician Levels", icon: "person.fill") {
+                        // Skill Levels Card
+                        filterCard(title: "Skill Levels", icon: "person.fill") {
                             improvedMultiSelectionView(
                                 options: TechnicianLevel.allCases,
                                 selected: $selectedTechnicianLevels
@@ -205,6 +205,10 @@ struct SearchFilterView: View {
                     isPresented = false
                 }
             )
+            // Ensure high-contrast header for filter editor
+            .toolbarBackground(Color.slate, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .onAppear {
                 // Initialize local states
                 minimumExperience = filter.yearsOfExperienceMin.map(String.init) ?? ""
