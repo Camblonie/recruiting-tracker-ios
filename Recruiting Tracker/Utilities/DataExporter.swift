@@ -278,7 +278,7 @@ class DataExporter {
         // Keep it simple; datasets are expected to be modest
         let descriptor = FetchDescriptor<Company>()
         if let companies = try? modelContext.fetch(descriptor) {
-            if let company = companies.first(where: { $0.positions.contains(where: { $0 === pos }) }) {
+            if let company = companies.first(where: { ($0.positions ?? []).contains(where: { $0 === pos }) }) {
                 return company.name
             }
         }

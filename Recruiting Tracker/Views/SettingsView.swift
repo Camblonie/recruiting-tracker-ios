@@ -9,6 +9,7 @@ struct SettingsView: View {
     @Query private var companies: [Company]
     @Query private var candidates: [Candidate]
     @Query private var positions: [Position]
+    @AppStorage("useCloudSync") private var useCloudSync = false
     
     @State private var selectedItem: PhotosPickerItem?
     @State private var showingExportOptions = false
@@ -27,6 +28,8 @@ struct SettingsView: View {
     @State private var newPositionDescription = ""
     @State private var showingAddPosition = false
     @State private var showingExport = false
+    // Cloud Sync
+    @State private var showCloudSyncInfo = false
     // CSV import
     @State private var showingCSVImporter = false
     @State private var showingImportSummary = false
@@ -48,6 +51,25 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Cloud Sync") {
+                    Toggle(isOn: $useCloudSync) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Enable iCloud Sync")
+                            Text("Requires iOS 18+, iCloud/CloudKit entitlements, and app relaunch")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .onChange(of: useCloudSync) { _, _ in
+                        // Inform the user that a relaunch is needed and entitlements must be configured
+                        showCloudSyncInfo = true
+                    }
+
+                    LabeledContent("Status", value: useCloudSync ? "On (takes effect next launch)" : "Off (local only)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Companies") {
                     ForEach(companies) { co in
                         HStack {
@@ -85,7 +107,7 @@ struct SettingsView: View {
                             
                             Spacer()
                             
-                            Text("\(position.candidates.count) candidates")
+                            Text("\(position.candidates?.count ?? 0) candidates")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -172,6 +194,11 @@ struct SettingsView: View {
                 if let target = companyToEdit {
                     CompanyEditorView(company: target)
                 }
+            }
+            .alert("Cloud Sync", isPresented: $showCloudSyncInfo) {
+                Button("OK") {}
+            } message: {
+                Text("Cloud Sync will initialize on next app launch when iCloud/CloudKit is enabled in Signing & Capabilities with container iCloud.com.camblonie.RecruitingTracker. If entitlements are missing, the app will fall back to local storage.")
             }
             .sheet(isPresented: $showingAddCompany) {
                 // Simple UI to add a new company by name; logo can be added later via editor
@@ -327,7 +354,8 @@ struct SettingsView: View {
         
         if let company = company {
             let position = Position(title: newPositionTitle, positionDescription: newPositionDescription)
-            company.positions.append(position)
+            if company.positions == nil { company.positions = [] }
+            company.positions?.append(position)
             
             // Clear form
             newPositionTitle = ""
@@ -350,7 +378,7 @@ struct SettingsView: View {
             let position = positions[index]
             
             // Remove the position from any candidates
-            for candidate in position.candidates {
+            for candidate in position.candidates ?? [] {
                 candidate.position = nil
             }
             
@@ -363,8 +391,8 @@ struct SettingsView: View {
         for index in offsets {
             let co = companies[index]
             // Detach candidates from positions owned by this company, delete positions, then delete company
-            for pos in co.positions {
-                for cand in pos.candidates {
+            for pos in (co.positions ?? []) {
+                for cand in pos.candidates ?? [] {
                     cand.position = nil
                 }
                 modelContext.delete(pos)
@@ -376,8 +404,8 @@ struct SettingsView: View {
     #if DEBUG
     private func deleteAllCompanies() {
         for co in companies {
-            for pos in co.positions {
-                for cand in pos.candidates {
+            for pos in (co.positions ?? []) {
+                for cand in pos.candidates ?? [] {
                     cand.position = nil
                 }
                 modelContext.delete(pos)

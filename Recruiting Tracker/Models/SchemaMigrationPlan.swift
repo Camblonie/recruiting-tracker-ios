@@ -40,13 +40,12 @@ enum AppMigrationPlan: SchemaMigrationPlan {
 
 // MARK: - Migration Helper
 class MigrationManager {
-    // Configure ModelConfiguration with CloudKit support and migration plan
+    // Configure a basic local ModelConfiguration for safe fallback without CloudKit
     static func configureModelConfiguration() -> ModelConfiguration {
-        let containerIdentifier = "iCloud.com.scottcampbell.Recruiting-Tracker"
         return ModelConfiguration(
             "RecruitingTrackerDB",
             schema: Schema([Candidate.self, Company.self, Position.self, CandidateFile.self]),
-            cloudKitDatabase: .private(containerIdentifier)
+            isStoredInMemoryOnly: false
         )
     }
     

@@ -51,6 +51,16 @@ struct FollowUpView: View {
                                                 .frame(width: 24, height: 24)
                                         }
                                     }
+                                    // Show split name lines for clarity (keeps combined name above for test compatibility)
+                                    let parts = splitName(candidate.name)
+                                    HStack(spacing: 6) {
+                                        Text("First: \(parts.first)")
+                                        if !parts.last.isEmpty {
+                                            Text("Last: \(parts.last)")
+                                        }
+                                    }
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
                                     
                                     Text(candidate.email)
                                         .font(.subheadline)
@@ -176,6 +186,15 @@ struct FollowUpView: View {
         case .manager:
             return "M"
         }
+    }
+
+    // Split helper used for display only; model remains a single name field
+    private func splitName(_ full: String) -> (first: String, last: String) {
+        let comps = full.split(whereSeparator: { $0.isWhitespace })
+        guard let first = comps.first else { return (full, "") }
+        if comps.count == 1 { return (String(first), "") }
+        let last = comps.dropFirst().joined(separator: " ")
+        return (String(first), last)
     }
 }
 

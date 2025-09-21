@@ -9,14 +9,16 @@ import UniformTypeIdentifiers
 @Model
 final class CandidateFile {
     // MARK: - Properties
-    var id: String
-    var fileName: String
-    var fileData: Data
-    var fileType: String
-    var dateAdded: Date
+    // CloudKit requires default values for non-optional attributes
+    var id: String = UUID().uuidString
+    var fileName: String = ""
+    var fileData: Data = Data()
+    var fileType: String = ""
+    var dateAdded: Date = Date()
     
     // MARK: - Relationships
-    @Relationship var candidate: Candidate?
+    // Relationship to Candidate; explicitly set inverse to Candidate.attachedFiles to satisfy CloudKit
+    @Relationship(inverse: \Candidate.attachedFiles) var candidate: Candidate?
     
     // MARK: - Initialization
     init(fileName: String, fileData: Data, fileType: String, candidate: Candidate? = nil) {

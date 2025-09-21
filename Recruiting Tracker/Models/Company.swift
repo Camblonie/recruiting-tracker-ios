@@ -3,13 +3,14 @@ import SwiftData
 
 @Model
 final class Company {
-    var name: String
+    // CloudKit requires default values for non-optional attributes
+    var name: String = ""
     var icon: Data?
-    var positions: [Position]
+    // CloudKit requires relationships to be optional. Use optional to-many and initialize on demand in code.
+    var positions: [Position]?
     
     init(name: String, icon: Data? = nil) {
         self.name = name
         self.icon = icon
-        self.positions = []
     }
 }
