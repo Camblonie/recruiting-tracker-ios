@@ -193,11 +193,12 @@ final class CSVImporter {
                         company = created
                     }
                     let defaultTitle = "General"
-                    if let existingPos = company.positions.first(where: { $0.title == defaultTitle }) {
+                    if let existingPos = (company.positions ?? []).first(where: { $0.title == defaultTitle }) {
                         candidate.position = existingPos
                     } else {
                         let createdPos = Position(title: defaultTitle, positionDescription: "Auto-created")
-                        company.positions.append(createdPos)
+                        if company.positions == nil { company.positions = [] }
+                        company.positions?.append(createdPos)
                         candidate.position = createdPos
                     }
                 } catch {

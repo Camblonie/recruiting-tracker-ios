@@ -89,12 +89,12 @@ struct CandidateFormView: View {
                         .onChange(of: selectedCompany) { _, newValue in
                             // Clear position if it doesn't belong to the newly selected company
                             if let newCompany = newValue, let pos = selectedPosition,
-                               !newCompany.positions.contains(where: { $0 === pos }) {
+                               !(newCompany.positions ?? []).contains(where: { $0 === pos }) {
                                 selectedPosition = nil
                             }
                         }
                     }
-                    let availablePositions = selectedCompany?.positions ?? positions
+                    let availablePositions: [Position] = (selectedCompany == nil) ? positions : (selectedCompany?.positions ?? [])
                     if !availablePositions.isEmpty {
                         Picker("Position", selection: $selectedPosition) {
                             Text("No position").tag(nil as Position?)
@@ -271,11 +271,12 @@ struct CandidateFormView: View {
                 // If a company is chosen but no position selected, create/find a generic position to associate
                 if candidate.position == nil, let company = selectedCompany {
                     let defaultTitle = "General"
-                    if let existing = company.positions.first(where: { $0.title == defaultTitle }) {
+                    if let existing = (company.positions ?? []).first(where: { $0.title == defaultTitle }) {
                         candidate.position = existing
                     } else {
                         let created = Position(title: defaultTitle, positionDescription: "Auto-created")
-                        company.positions.append(created)
+                        if company.positions == nil { company.positions = [] }
+                        company.positions?.append(created)
                         candidate.position = created
                     }
                 }

@@ -56,7 +56,7 @@ class DatabaseExporter {
 
     private static func companyName(for candidate: Candidate, companies: [Company]) -> String {
         guard let pos = candidate.position else { return "" }
-        if let co = companies.first(where: { $0.positions.contains(where: { $0 === pos }) }) {
+        if let co = companies.first(where: { ($0.positions ?? []).contains(where: { $0 === pos }) }) {
             return co.name
         }
         return ""

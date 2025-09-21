@@ -32,9 +32,9 @@ struct FileAttachmentView: View {
                 }
             }
             
-            if !candidate.attachedFiles.isEmpty {
+            if !(candidate.attachedFiles ?? []).isEmpty {
                 Section("Attached Files") {
-                    ForEach(candidate.attachedFiles) { file in
+                    ForEach(candidate.attachedFiles ?? []) { file in
                         FileRow(file: file)
                     }
                     .onDelete(perform: deleteFiles)
@@ -94,8 +94,9 @@ struct FileAttachmentView: View {
                     fileData: data,
                     fileType: typeIdentifier
                 )
-                // Append to relationship array
-                candidate.attachedFiles.append(attachment)
+                // Append to relationship array (initialize if needed)
+                if candidate.attachedFiles == nil { candidate.attachedFiles = [] }
+                candidate.attachedFiles?.append(attachment)
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -104,12 +105,14 @@ struct FileAttachmentView: View {
     }
     
     private func deleteFiles(at offsets: IndexSet) {
-        // Delete each file from context and remove from relationship
+        // Delete each file from context and remove from relationship (handle optional)
+        var files = candidate.attachedFiles ?? []
         for index in offsets.sorted(by: >) {
-            let file = candidate.attachedFiles[index]
+            let file = files[index]
             modelContext.delete(file)
-            candidate.attachedFiles.remove(at: index)
+            files.remove(at: index)
         }
+        candidate.attachedFiles = files.isEmpty ? nil : files
     }
 }
 

@@ -156,7 +156,7 @@ struct CandidateSearchResults: View {
                     let keys = Array(groupedCandidates.keys)
                     func companyNameForGroup(_ key: String) -> String {
                         guard let arr = groupedCandidates[key], let first = arr.first, let pos = first.position else { return "" }
-                        if let comp = companies.first(where: { $0.positions.contains(where: { $0 === pos }) }) {
+                        if let comp = companies.first(where: { ($0.positions ?? []).contains(where: { $0 === pos }) }) {
                             return comp.name
                         }
                         return ""
@@ -234,6 +234,7 @@ struct CandidateRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                // Show split first/last while keeping combined name for headline
                 Text(candidate.name)
                     .font(.headline)
                     .foregroundColor(Color.slate)
@@ -280,6 +281,16 @@ struct CandidateRow: View {
                         .frame(width: 24, height: 24)
                 }
             }
+            // Display first/last name split for clarity
+            let parts = splitName(candidate.name)
+            HStack(spacing: 6) {
+                Text("First: \(parts.first)")
+                if !parts.last.isEmpty {
+                    Text("Last: \(parts.last)")
+                }
+            }
+            .font(.caption2)
+            .foregroundColor(.secondary)
             
             Text(candidate.email)
                 .font(.subheadline)
@@ -303,6 +314,15 @@ struct CandidateRow: View {
         )
         .cornerRadius(12)
         .shadow(color: Color.slate.opacity(0.15), radius: 4, x: 0, y: 2)
+    }
+    
+    // Split a full name into first/last for display; keeps model unchanged
+    private func splitName(_ full: String) -> (first: String, last: String) {
+        let comps = full.split(whereSeparator: { $0.isWhitespace })
+        guard let first = comps.first else { return (full, "") }
+        if comps.count == 1 { return (String(first), "") }
+        let last = comps.dropFirst().joined(separator: " ")
+        return (String(first), last)
     }
     
     private func levelIndicator(for level: TechnicianLevel) -> String {

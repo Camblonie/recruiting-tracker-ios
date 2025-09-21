@@ -63,44 +63,45 @@ struct AvoidFlagEntry: Codable {
 @Model
 final class Candidate {
     // MARK: - Properties
-    var id: String
+    var id: String = UUID().uuidString
     
     // Basic Information
-    var name: String
-    var phoneNumber: String
-    var email: String
-    var leadSource: LeadSource
+    var name: String = ""
+    var phoneNumber: String = ""
+    var email: String = ""
+    var leadSource: LeadSource = LeadSource.indeed
     var referralName: String?
     
     // Experience and Skills
-    var yearsOfExperience: Int
-    var previousEmployers: [PreviousEmployer]
-    var technicalFocus: [TechnicalFocus]
-    var technicianLevel: TechnicianLevel
+    var yearsOfExperience: Int = 0
+    var previousEmployers: [PreviousEmployer] = []
+    var technicalFocus: [TechnicalFocus] = []
+    var technicianLevel: TechnicianLevel = TechnicianLevel.unknown
     
     // Status and Flags
-    var hiringStatus: HiringStatus
-    var needsFollowUp: Bool
-    var isHotCandidate: Bool
-    private(set) var avoidCandidate: Bool
-    var avoidFlagHistory: [AvoidFlagEntry]
+    var hiringStatus: HiringStatus = HiringStatus.notContacted
+    var needsFollowUp: Bool = false
+    var isHotCandidate: Bool = false
+    private(set) var avoidCandidate: Bool = false
+    var avoidFlagHistory: [AvoidFlagEntry] = []
     
     // Compensation
     var conceptPayScale: String?
     var conceptPayDate: Date?
-    var needsHealthInsurance: Bool
+    var needsHealthInsurance: Bool = false
     
     // Additional Information
     var offerDetail: String?
     var offerDate: Date?
     var picture: Data?
-    var socialMediaLinks: [String]
-    var notes: String
-    var dateEntered: Date
+    var socialMediaLinks: [String] = []
+    var notes: String = ""
+    var dateEntered: Date = Date()
     
     // Relationships
-    @Relationship var attachedFiles: [CandidateFile]
-    @Relationship var position: Position?
+    // CloudKit requires relationships to be optional
+    var attachedFiles: [CandidateFile]?
+    @Relationship(inverse: \Position.candidates) var position: Position?
     
     // MARK: - Initialization
     init(name: String,
@@ -140,7 +141,6 @@ final class Candidate {
         self.socialMediaLinks = []
         self.notes = ""
         self.dateEntered = dateEntered
-        self.attachedFiles = []
     }
     
     // MARK: - Flag Management

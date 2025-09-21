@@ -257,7 +257,9 @@ struct OnboardingView: View {
             // Save company and position
             let company = Company(name: companyName, icon: companyIcon)
             let position = Position(title: positionTitle, positionDescription: positionDescription)
-            company.positions.append(position)
+            // Initialize optional positions array before appending
+            if company.positions == nil { company.positions = [] }
+            company.positions?.append(position)
             modelContext.insert(company)
             
             // Explicitly save the context

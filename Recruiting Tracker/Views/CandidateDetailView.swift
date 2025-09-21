@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 import Combine
+import MessageUI
+import UIKit
 
 struct CandidateDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -15,12 +17,21 @@ struct CandidateDetailView: View {
     @State private var showingAvoidHistory = false
     @State private var avoidFlagReason = ""
     @State private var tempAvoidFlag = false
+    // Share state
+    @State private var showingMailComposer = false
+    @State private var showingShareSheet = false
+    @State private var shareText: String = ""
     
     var body: some View {
         List {
             // Basic Information
             Section("Basic Information") {
-                LabeledContent("Name", value: candidate.name)
+                // Display split name fields for clarity
+                LabeledContent("First Name", value: splitName(candidate.name).first)
+                let _last = splitName(candidate.name).last
+                if !_last.isEmpty {
+                    LabeledContent("Last Name", value: _last)
+                }
                 LabeledContent("Phone", value: candidate.phoneNumber)
                 LabeledContent("Email", value: candidate.email)
                 LabeledContent("Lead Source", value: candidate.leadSource.rawValue)
@@ -145,7 +156,7 @@ struct CandidateDetailView: View {
                     FileAttachmentView(candidate: candidate)
                 }
                 
-                Button("Share Candidate Info (set in settings)") {
+                Button("Share Candidate Info (Email)") {
                     shareCandidate()
                 }
                 .foregroundColor(.blue)
@@ -170,6 +181,19 @@ struct CandidateDetailView: View {
         .toolbarBackground(Color.slate, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        // Email composer
+        .sheet(isPresented: $showingMailComposer) {
+            MailComposerView(
+                subject: "Candidate Info: \(candidate.name)",
+                body: shareText
+            ) { _ in
+                showingMailComposer = false
+            }
+        }
+        // Generic Share sheet fallback
+        .sheet(isPresented: $showingShareSheet) {
+            ActivityShareView(activityItems: [shareText])
+        }
         .alert("Delete Candidate", isPresented: $showingDeleteConfirmation) {
             Button("Delete", role: .destructive) {
                 deleteCandidate()
@@ -231,17 +255,14 @@ struct CandidateDetailView: View {
     }
     
     private func shareCandidate() {
+        // Build share text (export) and present appropriate UI
         let info = candidate.exportData()
-        
-        let av = UIActivityViewController(
-            activityItems: [info],
-            applicationActivities: nil
-        )
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first,
-           let rootVC = window.rootViewController {
-            rootVC.present(av, animated: true)
+        shareText = info
+        if MFMailComposeViewController.canSendMail() {
+            showingMailComposer = true
+        } else {
+            // Fallback to system share sheet (user can choose Mail app or copy)
+            showingShareSheet = true
         }
     }
     
@@ -412,13 +433,13 @@ struct CandidateEditView: View {
                     .onChange(of: selectedCompany) { _, newValue in
                         // Clear position if it doesn't belong to the newly selected company
                         if let newCompany = newValue, let pos = selectedPosition,
-                           !newCompany.positions.contains(where: { $0 === pos }) {
+                           !(newCompany.positions ?? []).contains(where: { $0 === pos }) {
                             selectedPosition = nil
                         }
                     }
                 }
                 
-                let availablePositions = selectedCompany?.positions ?? positions
+                let availablePositions: [Position] = (selectedCompany == nil) ? positions : (selectedCompany?.positions ?? [])
                 if !availablePositions.isEmpty {
                     Picker("Position", selection: $selectedPosition) {
                         Text("No position").tag(nil as Position?)
@@ -553,11 +574,12 @@ struct CandidateEditView: View {
                 // If a company is chosen but no position selected, ensure association by creating/finding a generic position
                 if candidate.position == nil, let company = selectedCompany {
                     let defaultTitle = "General"
-                    if let existing = company.positions.first(where: { $0.title == defaultTitle }) {
+                    if let existing = (company.positions ?? []).first(where: { $0.title == defaultTitle }) {
                         candidate.position = existing
                     } else {
                         let created = Position(title: defaultTitle, positionDescription: "Auto-created")
-                        company.positions.append(created)
+                        if company.positions == nil { company.positions = [] }
+                        company.positions?.append(created)
                         candidate.position = created
                     }
                 }
@@ -594,7 +616,9 @@ struct CandidateEditView: View {
     private func deleteCandidate() {
         // Remove the candidate from its position if assigned
         if let position = candidate.position {
-            position.candidates.removeAll { $0.id == candidate.id }
+            var arr = position.candidates ?? []
+            arr.removeAll { $0.id == candidate.id }
+            position.candidates = arr.isEmpty ? nil : arr
         }
         
         // Delete the candidate and close the form
@@ -607,16 +631,78 @@ struct CandidateEditView: View {
 extension CandidateDetailView {
     fileprivate func companyName(for candidate: Candidate) -> String? {
         guard let pos = candidate.position else { return nil }
-        for company in companies { if company.positions.contains(where: { $0 === pos }) { return company.name } }
+        for company in companies { if (company.positions ?? []).contains(where: { $0 === pos }) { return company.name } }
         return nil
+    }
+
+    /// Split a full name into first and last parts for display only; model remains a single field.
+    fileprivate func splitName(_ full: String) -> (first: String, last: String) {
+        let comps = full.split(whereSeparator: { $0.isWhitespace })
+        guard let first = comps.first else { return (full, "") }
+        if comps.count == 1 { return (String(first), "") }
+        let last = comps.dropFirst().joined(separator: " ")
+        return (String(first), last)
     }
 }
 
 extension CandidateEditView {
     fileprivate func companyForPosition(_ pos: Position?) -> Company? {
         guard let pos else { return nil }
-        for company in companies { if company.positions.contains(where: { $0 === pos }) { return company } }
+        for company in companies { if (company.positions ?? []).contains(where: { $0 === pos }) { return company } }
         return nil
+    }
+}
+
+// MARK: - UIKit Bridges for Share / Mail
+private struct ActivityShareView: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    let applicationActivities: [UIActivity]? = nil
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+    }
+    
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+private struct MailComposerView: UIViewControllerRepresentable {
+    typealias UIViewControllerType = MFMailComposeViewController
+    
+    let subject: String
+    let body: String
+    var recipients: [String]? = nil
+    let onFinish: (Result<MFMailComposeResult, Error>) -> Void
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onFinish: onFinish)
+    }
+    
+    func makeUIViewController(context: Context) -> MFMailComposeViewController {
+        let vc = MFMailComposeViewController()
+        vc.mailComposeDelegate = context.coordinator
+        vc.setSubject(subject)
+        vc.setMessageBody(body, isHTML: false)
+        if let to = recipients { vc.setToRecipients(to) }
+        return vc
+    }
+    
+    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
+    
+    final class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
+        let onFinish: (Result<MFMailComposeResult, Error>) -> Void
+        init(onFinish: @escaping (Result<MFMailComposeResult, Error>) -> Void) {
+            self.onFinish = onFinish
+        }
+        func mailComposeController(_ controller: MFMailComposeViewController,
+                                   didFinishWith result: MFMailComposeResult,
+                                   error: Error?) {
+            if let error = error {
+                onFinish(.failure(error))
+            } else {
+                onFinish(.success(result))
+            }
+            controller.dismiss(animated: true)
+        }
     }
 }
 
