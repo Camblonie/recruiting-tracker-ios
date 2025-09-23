@@ -11,6 +11,8 @@ struct SearchView: View {
     @State private var showingFilters = false
     @State private var selectedCandidate: Candidate?
     @State private var showingDeleteConfirmation = false
+    // Refresh token to force view reloads when user pulls to refresh or taps Update
+    @State private var refreshToken = UUID()
     
     var body: some View {
         NavigationStack {
@@ -53,9 +55,14 @@ struct SearchView: View {
                         selectedCandidate: $selectedCandidate,
                         showingDeleteConfirmation: $showingDeleteConfirmation
                     )
+                    .id(refreshToken)
                 }
             }
             .searchable(text: $searchText, prompt: "Search by name, email, or phone")
+            .refreshable {
+                // Trigger a refresh by changing the view identity
+                refreshToken = UUID()
+            }
             .onChange(of: searchText) { oldValue, newValue in
                 filter.searchText = newValue
             }
@@ -78,7 +85,15 @@ struct SearchView: View {
                 navBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.white]
             }
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button {
+                        // Manual refresh via toolbar
+                        refreshToken = UUID()
+                    } label: {
+                        Label("Update", systemImage: "arrow.clockwise")
+                            .foregroundColor(.cream)
+                    }
+
                     Button {
                         showingFilters = true
                     } label: {
@@ -232,7 +247,7 @@ struct CandidateRow: View {
     let candidate: Candidate
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
                 // Show split first/last while keeping combined name for headline
                 Text(candidate.name)
@@ -281,16 +296,6 @@ struct CandidateRow: View {
                         .frame(width: 24, height: 24)
                 }
             }
-            // Display first/last name split for clarity
-            let parts = splitName(candidate.name)
-            HStack(spacing: 6) {
-                Text("First: \(parts.first)")
-                if !parts.last.isEmpty {
-                    Text("Last: \(parts.last)")
-                }
-            }
-            .font(.caption2)
-            .foregroundColor(.secondary)
             
             Text(candidate.email)
                 .font(.subheadline)
@@ -308,21 +313,12 @@ struct CandidateRow: View {
             .font(.caption)
             .foregroundColor(.secondary)
         }
-        .padding(12)
+        .padding(8)
         .background(
             Color.cream.opacity(0.7)
         )
         .cornerRadius(12)
         .shadow(color: Color.slate.opacity(0.15), radius: 4, x: 0, y: 2)
-    }
-    
-    // Split a full name into first/last for display; keeps model unchanged
-    private func splitName(_ full: String) -> (first: String, last: String) {
-        let comps = full.split(whereSeparator: { $0.isWhitespace })
-        guard let first = comps.first else { return (full, "") }
-        if comps.count == 1 { return (String(first), "") }
-        let last = comps.dropFirst().joined(separator: " ")
-        return (String(first), last)
     }
     
     private func levelIndicator(for level: TechnicianLevel) -> String {

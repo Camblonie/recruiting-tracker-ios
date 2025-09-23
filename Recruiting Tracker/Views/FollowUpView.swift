@@ -4,16 +4,12 @@ import UIKit
 
 struct FollowUpView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var candidates: [Candidate]
-    
-    init() {
-        // Filter for candidates that need follow-up
-        let predicate = #Predicate<Candidate> { candidate in
-            candidate.needsFollowUp
-        }
-        let sortDescriptor = SortDescriptor(\Candidate.dateEntered, order: .reverse)
-        _candidates = Query(filter: predicate, sort: [sortDescriptor])
-    }
+    @Query(
+        filter: #Predicate<Candidate> { $0.needsFollowUp },
+        sort: [SortDescriptor(\.dateEntered, order: .reverse)]
+    ) private var candidates: [Candidate]
+    // Force a lightweight refresh when a follow-up candidate is added from the add sheet
+    @State private var refreshID = UUID()
     
     var body: some View {
         NavigationStack {
@@ -47,53 +43,58 @@ struct FollowUpView: View {
                                                 .padding(4)
                                                 .background(levelGradient(for: candidate.technicianLevel))
                                                 .foregroundColor(.white)
-                                                .cornerRadius(4)
-                                                .frame(width: 24, height: 24)
-                                        }
                                     }
-                                    // Show split name lines for clarity (keeps combined name above for test compatibility)
-                                    let parts = splitName(candidate.name)
-                                    HStack(spacing: 6) {
-                                        Text("First: \(parts.first)")
-                                        if !parts.last.isEmpty {
-                                            Text("Last: \(parts.last)")
-                                        }
+                                }
+                                // Show split name lines for clarity (keeps combined name above for test compatibility)
+                                let parts = splitName(candidate.name)
+                                HStack(spacing: 6) {
+                                    Text("First: \(parts.first)")
+                                    if !parts.last.isEmpty {
+                                        Text("Last: \(parts.last)")
                                     }
-                                    .font(.caption2)
+                                }
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                
+                                Text(candidate.email)
+                                    .font(.subheadline)
                                     .foregroundColor(.secondary)
-                                    
-                                    Text(candidate.email)
-                                        .font(.subheadline)
+                                
+                                HStack {
+                                    Label("\(candidate.yearsOfExperience) years", systemImage: "clock")
                                         .foregroundColor(.secondary)
                                     
-                                    HStack {
-                                        Label("\(candidate.yearsOfExperience) years", systemImage: "clock")
-                                            .foregroundColor(.secondary)
-                                        
-                                        Spacer()
-                                        
-                                        Text(candidate.hiringStatus.rawValue)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(Color.slate.opacity(0.1))
-                                            .foregroundColor(.secondary)
-                                            .cornerRadius(4)
-                                    }
-                                    .font(.caption)
+                                    Spacer()
+                                    
+                                    Text(candidate.hiringStatus.rawValue)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.slate.opacity(0.1))
+                                        .foregroundColor(.secondary)
+                                        .cornerRadius(4)
                                 }
-                                .padding(12)
-                                .background(
-                                    Color.cream.opacity(0.7)
-                                )
-                                .cornerRadius(12)
-                                .shadow(color: Color.slate.opacity(0.15), radius: 4, x: 0, y: 2)
-                                .contentShape(Rectangle())
+                                .font(.caption)
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .padding(12)
+                            .background(
+                                Color.cream.opacity(0.7)
+                            )
+                            .cornerRadius(12)
+                            .shadow(color: Color.slate.opacity(0.15), radius: 4, x: 0, y: 2)
+                            .contentShape(Rectangle())
                         }
+                        // Expose the candidate name as the cell's accessibility label for reliable UI testing
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(candidate.name)
+                        .accessibilityIdentifier(candidate.name)
+                        .buttonStyle(PlainButtonStyle())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                     }
-                    .padding()
                 }
+                .listStyle(.plain)
+                // Tie the content identity to refreshID so a change re-evaluates the view tree
+                .id(refreshID)
                 
                 // Empty state overlay
                 if candidates.isEmpty {
@@ -117,6 +118,17 @@ struct FollowUpView: View {
                 let navBarAppearance = UINavigationBar.appearance()
                 navBarAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
                 navBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+                #if DEBUG
+                let names = candidates.map { $0.name }.joined(separator: ", ")
+                print("[FollowUp] count=\(candidates.count) names=[\(names)]")
+                #endif
+            }
+            // Listen for newly added follow-up candidates and trigger a lightweight refresh
+            .onReceive(NotificationCenter.default.publisher(for: .didAddFollowUpCandidate)) { _ in
+                #if DEBUG
+                print("[FollowUp] received didAddFollowUpCandidate -> refreshing view")
+                #endif
+                refreshID = UUID()
             }
         }
     }

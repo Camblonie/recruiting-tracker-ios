@@ -69,6 +69,8 @@ struct MainTabView: View {
                         CandidateFormView(isPresented: $showingCandidateForm)
                             .navigationBarTitleDisplayMode(.inline)
                     }
+                    // Prevent swipe-to-dismiss to ensure users explicitly choose Save or Cancel
+                    .interactiveDismissDisabled(true)
                 }
 
                 StatisticsView()

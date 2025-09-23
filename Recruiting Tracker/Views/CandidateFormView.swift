@@ -53,8 +53,10 @@ struct CandidateFormView: View {
                 Section("Basic Information") {
                     TextField("First Name", text: $firstName)
                         .textContentType(.givenName)
+                        .accessibilityIdentifier("First Name")
                     TextField("Last Name", text: $lastName)
                         .textContentType(.familyName)
+                        .accessibilityIdentifier("Last Name")
                     
                     PhoneTextField(text: $phoneNumber)
                     
@@ -69,10 +71,30 @@ struct CandidateFormView: View {
                             Text(source.rawValue).tag(source as LeadSource?)
                         }
                     }
+                    .pickerStyle(.navigationLink)
                     
                     if leadSource == .referral {
                         TextField("Referral Name", text: $referralName)
                     }
+                }
+                
+                // Status earlier to reduce scrolling in tests and common flows
+                Section("Status") {
+                    Picker("Hiring Status", selection: $hiringStatus) {
+                        Text("Select a status").tag(HiringStatus.notContacted)
+                        ForEach(HiringStatus.allCases, id: \.self) { status in
+                            Text(status.rawValue).tag(status)
+                        }
+                    }
+                    
+                    Toggle("Needs Follow-up", isOn: $needsFollowUp)
+                    Toggle("Hot Candidate", isOn: $isHotCandidate)
+                    Toggle("Avoid Candidate", isOn: $avoidCandidate)
+                        .onChange(of: avoidCandidate) { oldValue, newValue in
+                            if newValue {
+                                showingAvoidWarning = true
+                            }
+                        }
                 }
                 
                 Section("Experience") {
@@ -122,24 +144,6 @@ struct CandidateFormView: View {
                             Text(level.rawValue).tag(level as TechnicianLevel?)
                         }
                     }
-                }
-                
-                Section("Status") {
-                    Picker("Hiring Status", selection: $hiringStatus) {
-                        Text("Select a status").tag(HiringStatus.notContacted)
-                        ForEach(HiringStatus.allCases, id: \.self) { status in
-                            Text(status.rawValue).tag(status)
-                        }
-                    }
-                    
-                    Toggle("Needs Follow-up", isOn: $needsFollowUp)
-                    Toggle("Hot Candidate", isOn: $isHotCandidate)
-                    Toggle("Avoid Candidate", isOn: $avoidCandidate)
-                        .onChange(of: avoidCandidate) { oldValue, newValue in
-                            if newValue {
-                                showingAvoidWarning = true
-                            }
-                        }
                 }
                 
                 Section("Compensation") {
@@ -198,11 +202,11 @@ struct CandidateFormView: View {
                 Text(validationError?.localizedDescription ?? "Unknown error")
             }
             .alert("Avoid Candidate Flag", isPresented: $showingAvoidWarning) {
-                TextField("Reason for avoiding", text: $avoidFlagReason)
+                TextField("Reason for change", text: $avoidFlagReason)
                 Button("Cancel", role: .cancel) {
                     avoidCandidate = false
                 }
-                Button("Confirm") {
+                Button("Mark as Avoid") {
                     // Reason will be saved when the candidate is saved
                 }
             } message: {
@@ -222,7 +226,7 @@ struct CandidateFormView: View {
     private func saveCandidate() {
         isProcessing = true
         
-        Task {
+        Task { @MainActor in
             do {
                 // Make sure required selections are made
                 guard let leadSource = leadSource else {
@@ -256,6 +260,8 @@ struct CandidateFormView: View {
                 try CandidateValidator.checkForDuplicates(candidate: candidate, in: modelContext)
                 
                 // Update additional properties
+                // Debug: Log the state for UI tests
+                print("[AddCandidate] name=\(fullName), needsFollowUp=\(needsFollowUp), isHot=\(isHotCandidate), avoid=\(avoidCandidate), lead=\(leadSource.rawValue)")
                 candidate.needsFollowUp = needsFollowUp
                 candidate.isHotCandidate = isHotCandidate
                 candidate.updateAvoidFlag(to: avoidCandidate, reason: avoidFlagReason)
@@ -283,6 +289,20 @@ struct CandidateFormView: View {
 
                 // Save to database
                 modelContext.insert(candidate)
+                // Persist changes so @Query in other views (e.g., Recruiting Tracker tab) observes the new record
+                try modelContext.save()
+                print("[AddCandidate] saved OK, id=\(candidate.id)")
+                #if DEBUG
+                let followCount = (try? modelContext.fetchCount(
+                    FetchDescriptor<Candidate>(
+                        predicate: #Predicate<Candidate> { $0.needsFollowUp }
+                    )
+                )) ?? -1
+                print("[AddCandidate] followUpCount=\(followCount) saved.needs=\(candidate.needsFollowUp)")
+                if candidate.needsFollowUp {
+                    NotificationCenter.default.post(name: .didAddFollowUpCandidate, object: nil)
+                }
+                #endif
                 isPresented = false
                 
             } catch let error as ValidationError {

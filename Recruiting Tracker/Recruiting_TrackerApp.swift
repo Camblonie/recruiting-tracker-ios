@@ -25,7 +25,14 @@ struct Recruiting_TrackerApp: App {
             // Signing & Capabilities and the app entitlements. No explicit parameter is required here.
             // Choose persistence based on Cloud Sync toggle. Default to local.
             let storedUseCloud = UserDefaults.standard.bool(forKey: "useCloudSync")
-            if storedUseCloud {
+            #if DEBUG
+            // During UI tests, force local store to ensure deterministic behavior
+            let isUITest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            let useCloud = isUITest ? false : storedUseCloud
+            #else
+            let useCloud = storedUseCloud
+            #endif
+            if useCloud {
                 #if swift(>=5.10)
                 if #available(iOS 18.0, *) {
                     print("[Startup] Cloud Sync ON: attempting CloudKit store")
