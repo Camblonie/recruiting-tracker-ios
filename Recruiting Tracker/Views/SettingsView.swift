@@ -28,6 +28,9 @@ struct SettingsView: View {
     @State private var newPositionDescription = ""
     @State private var showingAddPosition = false
     @State private var showingExport = false
+    // Share sheet for choosing an export destination/app
+    @State private var showingExportShare = false
+    @State private var exportShareURL: URL?
     // Cloud Sync
     @State private var showCloudSyncInfo = false
     // CSV import
@@ -42,6 +45,38 @@ struct SettingsView: View {
     var company: Company? {
         companies.first
     }
+
+// UIKit document picker wrapper to export a file to user-chosen destination (Files app, iCloud Drive, etc.).
+struct DocumentExportPicker: UIViewControllerRepresentable {
+    let url: URL
+    var onFinish: () -> Void = {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        // Present as export (copy) so the temporary file remains until the user completes the operation
+        let controller = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+        controller.delegate = context.coordinator
+        controller.shouldShowFileExtensions = true
+        controller.modalPresentationStyle = .formSheet
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let parent: DocumentExportPicker
+        init(_ parent: DocumentExportPicker) { self.parent = parent }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            parent.onFinish()
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            parent.onFinish()
+        }
+    }
+}
     
     enum ExportFormat {
         case text
@@ -176,18 +211,21 @@ struct SettingsView: View {
                     selectedItem = nil
                 }
             }
-            .confirmationDialog(
-                "Export Format",
-                isPresented: $showingExportOptions,
-                titleVisibility: .visible
-            ) {
-                Button("Text Format") {
-                    exportDatabase(.text)
-                }
-                Button("CSV Format") {
-                    exportDatabase(.csv)
-                }
-                Button("Cancel", role: .cancel) {}
+            // Use a sheet instead of confirmationDialog so the chooser does not anchor to the nav header
+            .sheet(isPresented: $showingExportOptions) {
+                ExportFormatSheet(
+                    onSelectText: {
+                        showingExportOptions = false
+                        exportDatabase(.text)
+                    },
+                    onSelectCSV: {
+                        showingExportOptions = false
+                        exportDatabase(.csv)
+                    },
+                    onCancel: {
+                        showingExportOptions = false
+                    }
+                )
             }
             .sheet(isPresented: $showingCompanyEditor) {
                 // Edit the selected company
@@ -256,6 +294,11 @@ struct SettingsView: View {
                 }
             }
             .sheet(isPresented: $showingExport) { ExportView() }
+            .sheet(isPresented: $showingExportShare) {
+                if let url = exportShareURL {
+                    ShareSheet(activityItems: [url])
+                }
+            }
             .fileImporter(
                 isPresented: $showingCSVImporter,
                 allowedContentTypes: [UTType.commaSeparatedText, .text],
@@ -429,20 +472,78 @@ struct SettingsView: View {
         }
         
         guard let data = exportString.data(using: .utf8) else { return }
-        
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
         try? data.write(to: url)
-        
-        let activityVC = UIActivityViewController(
-            activityItems: [url],
-            applicationActivities: nil
-        )
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first,
-           let rootVC = window.rootViewController {
-            rootVC.present(activityVC, animated: true)
+
+        // Defer slightly so the format sheet fully dismisses before showing share UI
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [self] in
+            exportShareURL = url
+            showingExportShare = true
         }
+    }
+
+    /// Find the top-most view controller on the active foreground UIWindowScene.
+    /// This helps ensure modal presentations appear above all other content.
+    private func topMostViewController() -> UIViewController? {
+        // Find the active foreground scene
+        let scenes = UIApplication.shared.connectedScenes
+        let activeScene = scenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+        // Get key window (fallback to first window if key not found)
+        let window = activeScene?.windows.first(where: { $0.isKeyWindow }) ?? activeScene?.windows.first
+        guard var top = window?.rootViewController else { return nil }
+        // Descend through presented/navigation/tab containers
+        while true {
+            if let presented = top.presentedViewController {
+                top = presented
+            } else if let nav = top as? UINavigationController, let visible = nav.visibleViewController {
+                top = visible
+            } else if let tab = top as? UITabBarController, let selected = tab.selectedViewController {
+                top = selected
+            } else {
+                break
+            }
+        }
+        return top
+    }
+}
+
+// Lightweight sheet used to choose export format without anchoring to the nav bar header.
+struct ExportFormatSheet: View {
+    let onSelectText: () -> Void
+    let onSelectCSV: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 16) {
+                List {
+                    Section("Choose Format") {
+                        Button(action: onSelectText) {
+                            Label("Text Format", systemImage: "doc.text")
+                        }
+                        Button(action: onSelectCSV) {
+                            Label("CSV Format", systemImage: "tablecells")
+                        }
+                    }
+                }
+                .listStyle(.insetGrouped)
+            }
+            .navigationTitle("Export Format")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+            }
+            // High-contrast header consistent with the app's style
+            .toolbarBackground(Color.slate, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+        }
+        // Present compactly so it doesn't feel intrusive
+        .presentationDetents([.fraction(0.35), .medium])
     }
 }
 
