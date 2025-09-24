@@ -36,60 +36,61 @@ struct FollowUpView: View {
                                             .padding(.vertical, 2)
                                             .background(Color.blue)
                                             .cornerRadius(4)
-                                            
+                                        
                                         HStack(spacing: 4) {
                                             Text(levelIndicator(for: candidate.technicianLevel))
                                                 .font(.caption.bold())
                                                 .padding(4)
                                                 .background(levelGradient(for: candidate.technicianLevel))
                                                 .foregroundColor(.white)
+                                                .cornerRadius(4)
+                                                .frame(width: 24, height: 24)
+                                        }
                                     }
-                                }
-                                // Show split name lines for clarity (keeps combined name above for test compatibility)
-                                let parts = splitName(candidate.name)
-                                HStack(spacing: 6) {
-                                    Text("First: \(parts.first)")
-                                    if !parts.last.isEmpty {
-                                        Text("Last: \(parts.last)")
+                                    // Show split name lines for clarity (keeps combined name above for test compatibility)
+                                    let parts = splitName(candidate.name)
+                                    HStack(spacing: 6) {
+                                        Text("First: \(parts.first)")
+                                        if !parts.last.isEmpty {
+                                            Text("Last: \(parts.last)")
+                                        }
                                     }
-                                }
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                
-                                Text(candidate.email)
-                                    .font(.subheadline)
+                                    .font(.caption2)
                                     .foregroundColor(.secondary)
-                                
-                                HStack {
-                                    Label("\(candidate.yearsOfExperience) years", systemImage: "clock")
+                                    
+                                    Text(candidate.email)
+                                        .font(.subheadline)
                                         .foregroundColor(.secondary)
                                     
-                                    Spacer()
-                                    
-                                    Text(candidate.hiringStatus.rawValue)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.slate.opacity(0.1))
-                                        .foregroundColor(.secondary)
-                                        .cornerRadius(4)
+                                    HStack {
+                                        Label("\(candidate.yearsOfExperience) years", systemImage: "clock")
+                                            .foregroundColor(.secondary)
+                                        
+                                        Spacer()
+                                        
+                                        Text(candidate.hiringStatus.rawValue)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.slate.opacity(0.1))
+                                            .foregroundColor(.secondary)
+                                            .cornerRadius(4)
+                                    }
+                                    .font(.caption)
                                 }
-                                .font(.caption)
+                                .padding(12)
+                                .background(
+                                    Color.cream.opacity(0.7)
+                                )
+                                .cornerRadius(12)
+                                .shadow(color: Color.slate.opacity(0.15), radius: 4, x: 0, y: 2)
+                                .contentShape(Rectangle())
                             }
-                            .padding(12)
-                            .background(
-                                Color.cream.opacity(0.7)
-                            )
-                            .cornerRadius(12)
-                            .shadow(color: Color.slate.opacity(0.15), radius: 4, x: 0, y: 2)
-                            .contentShape(Rectangle())
+                            .buttonStyle(PlainButtonStyle())
+                            // Expose the candidate name as the cell's accessibility label for reliable UI testing
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(candidate.name)
+                            .accessibilityIdentifier(candidate.name)
                         }
-                        // Expose the candidate name as the cell's accessibility label for reliable UI testing
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(candidate.name)
-                        .accessibilityIdentifier(candidate.name)
-                        .buttonStyle(PlainButtonStyle())
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
                     }
                 }
                 .listStyle(.plain)

@@ -16,7 +16,10 @@ struct SearchView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
+            // Remove outer ScrollView so the inner results list controls scrolling
+            // This keeps the A–Z index (overlayed inside results) stationary on screen.
+            ZStack {
+                Color.skyBlue.opacity(0.1).ignoresSafeArea()
                 VStack(spacing: 0) {
                     // Custom tab picker for sort options
                     VStack(spacing: 0) {
@@ -53,16 +56,33 @@ struct SearchView: View {
                         filter: filter,
                         sortOption: sortOption,
                         selectedCandidate: $selectedCandidate,
-                        showingDeleteConfirmation: $showingDeleteConfirmation
+                        showingDeleteConfirmation: $showingDeleteConfirmation,
+                        // Wire pull-to-refresh to regenerate the view identity
+                        onRefresh: { refreshToken = UUID() }
                     )
                     .id(refreshToken)
                 }
             }
-            .searchable(text: $searchText, prompt: "Search by name, email, or phone")
-            .refreshable {
-                // Trigger a refresh by changing the view identity
-                refreshToken = UUID()
+            // Stationary A–Z index overlay pinned to the right edge of the screen (applied to ZStack)
+            .overlay(alignment: .trailing) {
+                let alphabetLetters = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ").map { String($0) }
+                AlphabetIndexBar(
+                    letters: alphabetLetters,
+                    enabled: Set(alphabetLetters), // enable all; scrolling will no-op if no match
+                    onTap: { letter in
+                        NotificationCenter.default.post(
+                            name: .didTapAlphabetIndex,
+                            object: nil,
+                            userInfo: ["letter": letter]
+                        )
+                    }
+                )
+                .padding(.trailing, 4)
+                .padding(.vertical, 8)
+                .ignoresSafeArea(.keyboard)
+                .zIndex(100)
             }
+            .searchable(text: $searchText, prompt: "Search by name, email, or phone")
             .onChange(of: searchText) { oldValue, newValue in
                 filter.searchText = newValue
             }
@@ -126,6 +146,8 @@ struct CandidateSearchResults: View {
     let sortOption: SortOption
     @Binding var selectedCandidate: Candidate?
     @Binding var showingDeleteConfirmation: Bool
+    // Optional pull-to-refresh callback provided by parent SearchView
+    let onRefresh: (() -> Void)?
     
     @Query private var candidates: [Candidate]
     @Query private var companies: [Company]
@@ -145,12 +167,13 @@ struct CandidateSearchResults: View {
         }
     }
     
-    init(searchText: String, filter: SearchFilter, sortOption: SortOption, selectedCandidate: Binding<Candidate?>, showingDeleteConfirmation: Binding<Bool>) {
+    init(searchText: String, filter: SearchFilter, sortOption: SortOption, selectedCandidate: Binding<Candidate?>, showingDeleteConfirmation: Binding<Bool>, onRefresh: (() -> Void)? = nil) {
         self.searchText = searchText
         self.filter = filter
         self.sortOption = sortOption
         self._selectedCandidate = selectedCandidate
         self._showingDeleteConfirmation = showingDeleteConfirmation
+        self.onRefresh = onRefresh
         
         // Use a simple predicate (we'll filter by search text in the view)
         let predicate = #Predicate<Candidate> { _ in true }
@@ -159,85 +182,116 @@ struct CandidateSearchResults: View {
     }
     
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 12) {
-                // Group candidates by position
-                let groupedCandidates = Dictionary(grouping: filteredCandidates) { candidate in
-                    candidate.position?.title ?? "No Position Assigned"
+        // Helper to resolve the company name for a given candidate via its position
+        func companyName(for candidate: Candidate) -> String {
+            guard let pos = candidate.position else { return "" }
+            return companies.first(where: { ($0.positions ?? []).contains(where: { $0 === pos }) })?.name ?? ""
+        }
+
+        // Build a flat, ordered list of candidates WITHOUT grouping/headers
+        let orderedCandidates: [Candidate] = {
+            switch sortOption {
+            case .companyAsc:
+                return filteredCandidates.sorted { a, b in
+                    let ca = companyName(for: a)
+                    let cb = companyName(for: b)
+                    if ca.isEmpty && !cb.isEmpty { return false } // push empty to end
+                    if !ca.isEmpty && cb.isEmpty { return true }
+                    return ca.localizedCaseInsensitiveCompare(cb) == .orderedAscending
                 }
-                
-                // Sort section headers. If sorting by company, use the company's name of the first candidate in the group.
-                let sortedPositions: [String] = {
-                    let keys = Array(groupedCandidates.keys)
-                    func companyNameForGroup(_ key: String) -> String {
-                        guard let arr = groupedCandidates[key], let first = arr.first, let pos = first.position else { return "" }
-                        if let comp = companies.first(where: { ($0.positions ?? []).contains(where: { $0 === pos }) }) {
-                            return comp.name
-                        }
-                        return ""
-                    }
-                    return keys.sorted { a, b in
-                        // Always push "No Position Assigned" to the end
-                        if a == "No Position Assigned" { return false }
-                        if b == "No Position Assigned" { return true }
-                        switch sortOption {
-                        case .companyAsc:
-                            return companyNameForGroup(a).localizedCaseInsensitiveCompare(companyNameForGroup(b)) == .orderedAscending
-                        case .companyDesc:
-                            return companyNameForGroup(a).localizedCaseInsensitiveCompare(companyNameForGroup(b)) == .orderedDescending
-                        default:
-                            return a < b
-                        }
-                    }
-                }()
-                
-                ForEach(sortedPositions, id: \.self) { positionName in
-                    if let candidatesForPosition = groupedCandidates[positionName] {
-                        Section(header: 
-                            HStack {
-                                Image(systemName: "briefcase.fill")
-                                    .foregroundColor(.white)
-                                    .font(.subheadline)
-                                
-                                Text(positionName)
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                            }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.slate.opacity(0.9))
-                                    .shadow(color: Color.slate.opacity(0.15), radius: 2, x: 0, y: 1)
-                            )
-                            .padding(.top, 4)
-                        ) {
-                            ForEach(candidatesForPosition) { candidate in
-                                NavigationLink(destination: CandidateDetailView(candidate: candidate)) {
-                                    CandidateRow(candidate: candidate)
-                                        .contextMenu {
-                                            Button(role: .destructive) {
-                                                selectedCandidate = candidate
-                                                showingDeleteConfirmation = true
-                                            } label: {
-                                                Label("Delete", systemImage: "trash")
-                                            }
-                                        }
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                            }
-                        }
+            case .companyDesc:
+                return filteredCandidates.sorted { a, b in
+                    let ca = companyName(for: a)
+                    let cb = companyName(for: b)
+                    if ca.isEmpty && !cb.isEmpty { return false } // push empty to end
+                    if !ca.isEmpty && cb.isEmpty { return true }
+                    return ca.localizedCaseInsensitiveCompare(cb) == .orderedDescending
+                }
+            case .positionAsc:
+                // Sort by position title; unassigned go last
+                return filteredCandidates.sorted { a, b in
+                    let atOpt = a.position?.title
+                    let btOpt = b.position?.title
+                    if atOpt == nil && btOpt != nil { return false }
+                    if atOpt != nil && btOpt == nil { return true }
+                    guard let at = atOpt, let bt = btOpt else { return false }
+                    return at.localizedCaseInsensitiveCompare(bt) == .orderedAscending
+                }
+            case .positionDesc:
+                return filteredCandidates.sorted { a, b in
+                    let atOpt = a.position?.title
+                    let btOpt = b.position?.title
+                    if atOpt == nil && btOpt != nil { return false }
+                    if atOpt != nil && btOpt == nil { return true }
+                    guard let at = atOpt, let bt = btOpt else { return false }
+                    return at.localizedCaseInsensitiveCompare(bt) == .orderedDescending
+                }
+            default:
+                // For name/date/experience, rely on the SwiftData sort already applied to the query
+                // and only filter on search text here.
+                return filteredCandidates
+            }
+        }()
+
+        // Build first anchor id for each letter based on FIRST NAME initial
+        var firstIdForLetter: [String: String] = [:]
+        for c in orderedCandidates {
+            // Take first token (first name), then first letter
+            if let firstToken = c.name.split(whereSeparator: { $0.isWhitespace }).first {
+                let initial = String(firstToken).prefix(1).uppercased()
+                if initial >= "A" && initial <= "Z" {
+                    if firstIdForLetter[initial] == nil {
+                        firstIdForLetter[initial] = c.id
                     }
                 }
             }
-            .padding()
         }
-        .background(Color.skyBlue.opacity(0.1))
-        .overlay {
-            if filteredCandidates.isEmpty {
-                ContentUnavailableView.search
-                    .background(Color.skyBlue.opacity(0.05))
+        // Stationary overlay in SearchView will broadcast taps; we'll scroll upon receiving notifications
+
+        return ScrollViewReader { proxy in
+            ZStack {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(orderedCandidates) { candidate in
+                            NavigationLink(destination: CandidateDetailView(candidate: candidate)) {
+                                CandidateRow(candidate: candidate)
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            selectedCandidate = candidate
+                                            showingDeleteConfirmation = true
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
+                            }
+                            .id(candidate.id) // Anchor for ScrollViewReader
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    // Reserve space on the right so content never sits under the stationary A–Z index
+                    .padding(.leading, 16)
+                    .padding(.trailing, 56)
+                    .padding(.vertical, 16)
+                }
+                // Enable pull-to-refresh on the scrolling content
+                .refreshable {
+                    onRefresh?()
+                }
+                .background(Color.skyBlue.opacity(0.1))
+                
+                // Empty state overlay
+                if filteredCandidates.isEmpty {
+                    ContentUnavailableView.search
+                        .background(Color.skyBlue.opacity(0.05))
+                }
+            }
+            // Listen for taps from the stationary A–Z index at SearchView level
+            .onReceive(NotificationCenter.default.publisher(for: .didTapAlphabetIndex)) { note in
+                if let letter = note.userInfo?["letter"] as? String, let target = firstIdForLetter[letter] {
+                    withAnimation(.easeInOut) {
+                        proxy.scrollTo(target, anchor: .top)
+                    }
+                }
             }
         }
     }
